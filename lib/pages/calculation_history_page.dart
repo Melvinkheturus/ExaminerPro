@@ -24,6 +24,7 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
   List<Map<String, dynamic>> _history = [];
   List<Map<String, dynamic>> _filteredHistory = [];
   final TextEditingController _searchController = TextEditingController();
+  String _selectedSortOption = 'Date'; // Default sort option
   final Set<int> _selectedItems = {};
   bool _isSelectMode = false;
   final Map<String, bool> _expandedGroups = {};
@@ -40,16 +41,39 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
     super.dispose();
   }
 
-  void _filterHistory(String query) {
+  void _filterAndSortHistory(String query) {
     setState(() {
       _filteredHistory = _history.where((record) {
         final date = DateFormat('dd/MM/yyyy')
             .format(DateTime.parse(record['date']))
             .toLowerCase();
         final amount = record['total_salary'].toString().toLowerCase();
-        final searchQuery = query.toLowerCase();
-        return date.contains(searchQuery) || amount.contains(searchQuery);
+        final examinerName = record['examiner_name'].toString().toLowerCase();
+        return date.contains(query.toLowerCase()) ||
+            amount.contains(query.toLowerCase()) ||
+            examinerName.contains(query.toLowerCase());
       }).toList();
+
+      _sortHistory();
+    });
+  }
+
+  void _sortHistory() {
+    setState(() {
+      switch (_selectedSortOption) {
+        case 'Date':
+          _filteredHistory.sort((a, b) =>
+              DateTime.parse(b['date']).compareTo(DateTime.parse(a['date'])));
+          break;
+        case 'Amount':
+          _filteredHistory.sort((a, b) =>
+              (b['total_salary'] as num).compareTo(a['total_salary'] as num));
+          break;
+        case 'Name':
+          _filteredHistory.sort((a, b) => (a['examiner_name'] as String)
+              .compareTo(b['examiner_name'] as String));
+          break;
+      }
     });
   }
 
@@ -57,7 +81,8 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
     final history = await widget.dbHelper.getCalculationHistory();
     setState(() {
       _history = history;
-      _filteredHistory = history;
+      _filteredHistory = List.from(history);
+      _sortHistory(); // Apply initial sort
     });
   }
 
@@ -66,7 +91,8 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete All Calculation History'),
-        content: const Text('Are you sure you want to delete all calculation history? This cannot be undone.'),
+        content: const Text(
+            'Are you sure you want to delete all calculation history? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -92,7 +118,8 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Calculation'),
-        content: const Text('Are you sure you want to delete this calculation?'),
+        content:
+            const Text('Are you sure you want to delete this calculation?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -117,7 +144,7 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
     final examiner = await widget.dbHelper.getExaminer(widget.examinerId);
     if (examiner != null) {
       if (!mounted) return;
-      
+
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -134,8 +161,10 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                 Text('Department: ${examiner['department']}'),
                 Text('Total Papers: ${record['papers_evaluated']}'),
                 Text('Staff Count: ${record['staff_count']}'),
-                Text('Base Salary: Rs.${record['base_salary'].toStringAsFixed(2)}'),
-                Text('Incentive: Rs.${record['incentive_amount'].toStringAsFixed(2)}'),
+                Text(
+                    'Base Salary: Rs.${record['base_salary'].toStringAsFixed(2)}'),
+                Text(
+                    'Incentive: Rs.${record['incentive_amount'].toStringAsFixed(2)}'),
                 const Divider(),
                 Text(
                   'Total Amount: Rs.${record['total_salary'].toStringAsFixed(2)}',
@@ -169,7 +198,8 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
           .where((item) => _selectedItems.contains(item['id']))
           .toList();
 
-      final examiner = await widget.dbHelper.getExaminer(selectedCalculations.first['examiner_id']);
+      final examiner = await widget.dbHelper
+          .getExaminer(selectedCalculations.first['examiner_id']);
       if (examiner == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Error: Examiner details not found')),
@@ -193,7 +223,8 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
       }
 
       final timestamp = DateFormat('ddMMyyyy_HHmm').format(DateTime.now());
-      final fileName = '${examiner['fullname']}_SelectedCalculations_$timestamp.pdf';
+      final fileName =
+          '${examiner['fullname']}_SelectedCalculations_$timestamp.pdf';
       final file = File('${examinerDir.path}/$fileName');
 
       await file.writeAsBytes(await pdf.save());
@@ -230,10 +261,10 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
 
     try {
       final pdf = pw.Document();
-      
+
       // Group calculations by examiner
       final groupedCalculations = _groupHistoryByExaminer();
-      
+
       // Add a cover page
       pdf.addPage(
         pw.Page(
@@ -244,12 +275,14 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
               children: [
                 pw.Text(
                   'GURU NANAK COLLEGE (AUTONOMOUS)',
-                  style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+                  style: pw.TextStyle(
+                      fontSize: 20, fontWeight: pw.FontWeight.bold),
                 ),
                 pw.SizedBox(height: 10),
                 pw.Text(
                   'Complete Calculation History Report',
-                  style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+                  style: pw.TextStyle(
+                      fontSize: 18, fontWeight: pw.FontWeight.bold),
                 ),
                 pw.SizedBox(height: 20),
                 pw.Text(
@@ -266,8 +299,9 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
       for (var entry in groupedCalculations.entries) {
         final examinerName = entry.key;
         final calculations = entry.value;
-        final examiner = await widget.dbHelper.getExaminer(calculations.first['examiner_id']);
-        
+        final examiner = await widget.dbHelper
+            .getExaminer(calculations.first['examiner_id']);
+
         if (examiner != null) {
           // Add examiner header page
           pdf.addPage(
@@ -279,7 +313,8 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                   children: [
                     pw.Text(
                       examinerName,
-                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+                      style: pw.TextStyle(
+                          fontSize: 18, fontWeight: pw.FontWeight.bold),
                     ),
                     pw.SizedBox(height: 10),
                     pw.Text(
@@ -300,7 +335,8 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
       }
 
       final directory = await getApplicationDocumentsDirectory();
-      final baseDir = Directory('${directory.path}/Chief Examiner/Overall Reports');
+      final baseDir =
+          Directory('${directory.path}/Chief Examiner/Overall Reports');
       if (!await baseDir.exists()) {
         await baseDir.create(recursive: true);
       }
@@ -313,10 +349,10 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
 
       // Add to PDF history with special category
       await widget.dbHelper.insertPdfHistory({
-        'examiner_id': 0,  // Special ID for overall reports
+        'examiner_id': 0, // Special ID for overall reports
         'file_path': file.path,
         'created_at': DateTime.now().toIso8601String(),
-        'is_overall_report': 1,  // New field to identify overall reports
+        'is_overall_report': 1, // New field to identify overall reports
       });
 
       if (!mounted) return;
@@ -334,7 +370,8 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
     }
   }
 
-  Future<pw.Page> _generateCalculationPage(Map<String, dynamic> record, Map<String, dynamic> examiner) async {
+  Future<pw.Page> _generateCalculationPage(
+      Map<String, dynamic> record, Map<String, dynamic> examiner) async {
     return pw.Page(
       pageFormat: PdfPageFormat.a4,
       build: (context) => pw.Column(
@@ -345,7 +382,8 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
               children: [
                 pw.Text(
                   'GURU NANAK COLLEGE (AUTONOMOUS)',
-                  style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                  style: pw.TextStyle(
+                      fontSize: 16, fontWeight: pw.FontWeight.bold),
                 ),
                 pw.SizedBox(height: 4),
                 pw.Text(
@@ -355,12 +393,14 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                 pw.SizedBox(height: 4),
                 pw.Text(
                   'CONTROLLER OF EXAMINATIONS',
-                  style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+                  style: pw.TextStyle(
+                      fontSize: 12, fontWeight: pw.FontWeight.bold),
                 ),
                 pw.SizedBox(height: 10),
                 pw.Text(
                   'CHIEF EXAMINER SALARY REPORT',
-                  style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+                  style: pw.TextStyle(
+                      fontSize: 14, fontWeight: pw.FontWeight.bold),
                 ),
               ],
             ),
@@ -372,11 +412,21 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Text('CHIEF EXAMINER DETAILS', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                pw.Text('CHIEF EXAMINER DETAILS',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 10),
-                pw.Row(children: [pw.SizedBox(width: 100, child: pw.Text('Name')), pw.Text(': ${examiner['fullname']}')]),
-                pw.Row(children: [pw.SizedBox(width: 100, child: pw.Text('ID')), pw.Text(': ${examiner['examinerid']}')]),
-                pw.Row(children: [pw.SizedBox(width: 100, child: pw.Text('Department')), pw.Text(': ${examiner['department']}')]),
+                pw.Row(children: [
+                  pw.SizedBox(width: 100, child: pw.Text('Name')),
+                  pw.Text(': ${examiner['fullname']}')
+                ]),
+                pw.Row(children: [
+                  pw.SizedBox(width: 100, child: pw.Text('ID')),
+                  pw.Text(': ${examiner['examinerid']}')
+                ]),
+                pw.Row(children: [
+                  pw.SizedBox(width: 100, child: pw.Text('Department')),
+                  pw.Text(': ${examiner['department']}')
+                ]),
               ],
             ),
           ),
@@ -387,34 +437,48 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Text('CALCULATION DETAILS', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                pw.Text('CALCULATION DETAILS',
+                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 10),
-                pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                  pw.Text('Date'),
-                  pw.Text(DateFormat('dd/MM/yyyy').format(DateTime.parse(record['date']))),
-                ]),
-                pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                  pw.Text('Total Staff'),
-                  pw.Text('${record['staff_count']}'),
-                ]),
-                pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                  pw.Text('Papers Evaluated'),
-                  pw.Text('${record['papers_evaluated']}'),
-                ]),
+                pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Date'),
+                      pw.Text(DateFormat('dd/MM/yyyy')
+                          .format(DateTime.parse(record['date']))),
+                    ]),
+                pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Total Staff'),
+                      pw.Text('${record['staff_count']}'),
+                    ]),
+                pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Papers Evaluated'),
+                      pw.Text('${record['papers_evaluated']}'),
+                    ]),
                 pw.Divider(),
-                pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                  pw.Text('Base Salary'),
-                  pw.Text('Rs.${record['base_salary'].toStringAsFixed(2)}'),
-                ]),
-                pw.Row(mainAxisAlignment: pw.MainAxisAlignment.spaceBetween, children: [
-                  pw.Text('Incentive Amount'),
-                  pw.Text('Rs.${record['incentive_amount'].toStringAsFixed(2)}'),
-                ]),
+                pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Base Salary'),
+                      pw.Text('Rs.${record['base_salary'].toStringAsFixed(2)}'),
+                    ]),
+                pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Incentive Amount'),
+                      pw.Text(
+                          'Rs.${record['incentive_amount'].toStringAsFixed(2)}'),
+                    ]),
                 pw.Divider(),
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('Net Amount', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                    pw.Text('Net Amount',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                     pw.Text('Rs.${record['total_salary'].toStringAsFixed(2)}',
                         style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                   ],
@@ -448,19 +512,54 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
           // Search and Sort Bar
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search calculations...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+            child: Row(
+              children: [
+                // Search Bar
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      labelText: 'Search calculations...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      prefixIcon: const Icon(Icons.search),
+                    ),
+                    onChanged: _filterAndSortHistory,
+                  ),
                 ),
-              ),
-              onChanged: _filterHistory,
+                const SizedBox(width: 8),
+
+                // Sort Icon with Dropdown Menu
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.sort, size: 28),
+                  tooltip: 'Sort by',
+                  onSelected: (String newValue) {
+                    setState(() {
+                      _selectedSortOption = newValue;
+                      _sortHistory();
+                    });
+                  },
+                  itemBuilder: (BuildContext context) =>
+                      <PopupMenuEntry<String>>[
+                    const PopupMenuItem<String>(
+                      value: 'Date',
+                      child: Text('Sort by Date'),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'Amount',
+                      child: Text('Sort by Amount'),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'Name',
+                      child: Text('Sort by Name'),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          
+
           // Add Download Options Section
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -486,7 +585,8 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isSelectMode ? Colors.grey : const Color(0xFF6200EE),
+                      backgroundColor:
+                          _isSelectMode ? Colors.grey : const Color(0xFF6200EE),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -519,14 +619,17 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    onPressed: (!_isSelectMode || _selectedItems.isEmpty) ? null : _downloadSelected,
+                    onPressed: (!_isSelectMode || _selectedItems.isEmpty)
+                        ? null
+                        : _downloadSelected,
                   ),
                 ),
                 const SizedBox(width: 8),
                 // Download All Button
                 Expanded(
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.download_for_offline, color: Colors.white),
+                    icon: const Icon(Icons.download_for_offline,
+                        color: Colors.white),
                     label: const Text(
                       'Download All',
                       style: TextStyle(
@@ -547,7 +650,7 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
               ],
             ),
           ),
-          
+
           // Calculation List
           Expanded(
             child: _filteredHistory.isEmpty
@@ -558,7 +661,7 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                       final groupedHistory = _groupHistoryByExaminer();
                       final examinerName = groupedHistory.keys.elementAt(index);
                       final examinerRecords = groupedHistory[examinerName]!;
-                      
+
                       return Card(
                         margin: const EdgeInsets.all(8),
                         child: Column(
@@ -574,17 +677,21 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                               ),
                               leading: _isSelectMode
                                   ? Checkbox(
-                                      value: examinerRecords.every(
-                                        (record) => _selectedItems.contains(record['id'])),
+                                      value: examinerRecords.every((record) =>
+                                          _selectedItems
+                                              .contains(record['id'])),
                                       onChanged: (bool? value) {
                                         setState(() {
                                           if (value == true) {
-                                            for (var record in examinerRecords) {
+                                            for (var record
+                                                in examinerRecords) {
                                               _selectedItems.add(record['id']);
                                             }
                                           } else {
-                                            for (var record in examinerRecords) {
-                                              _selectedItems.remove(record['id']);
+                                            for (var record
+                                                in examinerRecords) {
+                                              _selectedItems
+                                                  .remove(record['id']);
                                             }
                                           }
                                         });
@@ -603,13 +710,14 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                                   ),
                                   IconButton(
                                     icon: Icon(
-                                      _expandedGroups[examinerName]! 
-                                          ? Icons.expand_less 
+                                      _expandedGroups[examinerName]!
+                                          ? Icons.expand_less
                                           : Icons.expand_more,
                                     ),
                                     onPressed: () {
                                       setState(() {
-                                        _expandedGroups[examinerName] = !_expandedGroups[examinerName]!;
+                                        _expandedGroups[examinerName] =
+                                            !_expandedGroups[examinerName]!;
                                       });
                                     },
                                   ),
@@ -624,8 +732,9 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                                 itemCount: examinerRecords.length,
                                 itemBuilder: (context, recordIndex) {
                                   final record = examinerRecords[recordIndex];
-                                  final isSelected = _selectedItems.contains(record['id']);
-                                  
+                                  final isSelected =
+                                      _selectedItems.contains(record['id']);
+
                                   return ListTile(
                                     leading: _isSelectMode
                                         ? Checkbox(
@@ -633,9 +742,11 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                                             onChanged: (bool? value) {
                                               setState(() {
                                                 if (value == true) {
-                                                  _selectedItems.add(record['id']);
+                                                  _selectedItems
+                                                      .add(record['id']);
                                                 } else {
-                                                  _selectedItems.remove(record['id']);
+                                                  _selectedItems
+                                                      .remove(record['id']);
                                                 }
                                               });
                                             },
@@ -647,10 +758,13 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                                       )}',
                                     ),
                                     subtitle: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Text('Total Papers: ${record['papers_evaluated']}'),
-                                        Text('Total Staff: ${record['staff_count']}'),
+                                        Text(
+                                            'Total Papers: ${record['papers_evaluated']}'),
+                                        Text(
+                                            'Total Staff: ${record['staff_count']}'),
                                         Text(
                                           'Total Salary: Rs.${record['total_salary'].toStringAsFixed(2)}',
                                           style: const TextStyle(
@@ -666,14 +780,19 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               IconButton(
-                                                icon: const Icon(Icons.visibility),
+                                                icon: const Icon(
+                                                    Icons.visibility),
                                                 color: Colors.blue,
-                                                onPressed: () => _showCalculationDetails(record),
+                                                onPressed: () =>
+                                                    _showCalculationDetails(
+                                                        record),
                                               ),
                                               IconButton(
                                                 icon: const Icon(Icons.delete),
                                                 color: Colors.red,
-                                                onPressed: () => _deleteCalculation(record['id']),
+                                                onPressed: () =>
+                                                    _deleteCalculation(
+                                                        record['id']),
                                               ),
                                             ],
                                           ),

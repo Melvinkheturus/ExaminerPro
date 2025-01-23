@@ -181,9 +181,11 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
     with TickerProviderStateMixin {
   final DatabaseHelper _dbHelper = DatabaseHelper();
   List<Map<String, dynamic>> _examiners = [];
+  List<Map<String, dynamic>> _filteredExaminers = [];
   late BuildContext _context;
   late TabController _tabController;
-  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  String _selectedSortOption = 'Name';
   final bool _isSidebarCollapsed = false;
   late AnimationController _animationController;
 
@@ -192,14 +194,10 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
     super.initState();
     _loadExaminers();
     _tabController = TabController(length: 3, vsync: this);
-
-    // Initialize the animation controller
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-
-    // If the sidebar is initially collapsed, set the animation to the end
     if (_isSidebarCollapsed) {
       _animationController.forward();
     }
@@ -208,7 +206,8 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
   @override
   void dispose() {
     _tabController.dispose();
-    _animationController.dispose(); // Make sure to dispose the controller
+    _animationController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -216,6 +215,8 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
     final examiners = await _dbHelper.getExaminers();
     setState(() {
       _examiners = examiners;
+      _filteredExaminers = List.from(examiners);
+      _sortExaminers(); // Initial sort
     });
   }
 
@@ -229,6 +230,35 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
       _context,
       MaterialPageRoute(builder: (ctx) => ProfilePage(dbHelper: _dbHelper)),
     ).then((_) => _loadExaminers());
+  }
+
+  void _filterAndSortExaminers(String query) {
+    setState(() {
+      _filteredExaminers = _examiners.where((examiner) {
+        final name = examiner['fullname'].toString().toLowerCase();
+        final id = examiner['examinerid'].toString().toLowerCase();
+        return name.contains(query.toLowerCase()) ||
+            id.contains(query.toLowerCase());
+      }).toList();
+
+      _sortExaminers();
+    });
+  }
+
+  void _sortExaminers() {
+    setState(() {
+      switch (_selectedSortOption) {
+        case 'Name':
+          _filteredExaminers.sort((a, b) =>
+              (a['fullname'] as String).compareTo(b['fullname'] as String));
+          break;
+        case 'ID':
+          _filteredExaminers.sort((a, b) =>
+              (a['examinerid'] as String).compareTo(b['examinerid'] as String));
+          break;
+        // Add more sorting options if needed
+      }
+    });
   }
 
   @override
@@ -270,9 +300,8 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: isDark
-                                ? Colors.white
-                                : const Color(0xFF2D2D2D),
+                            color:
+                                isDark ? Colors.white : const Color(0xFF2D2D2D),
                           ),
                         ),
                       ),
@@ -462,35 +491,52 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
   }
 
   Widget _buildDashboardTab() {
-    final filteredExaminers = _examiners.where((examiner) {
-      final name = examiner['fullname'].toString().toLowerCase();
-      final id = examiner['examinerid'].toString().toLowerCase();
-      final query = _searchQuery.toLowerCase();
-      return name.contains(query) || id.contains(query);
-    }).toList();
-
     return Column(
       children: [
-        Container(
+        // Search and Sort Bar
+        Padding(
           padding: const EdgeInsets.all(8.0),
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-          ),
-          child: TextField(
-            decoration: const InputDecoration(
-              hintText: 'Search examiners...',
-              prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(),
-            ),
-            onChanged: (value) {
-              setState(() {
-                _searchQuery = value;
-              });
-            },
+          child: Row(
+            children: [
+              // Search Bar
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: const InputDecoration(
+                    labelText: 'Search examiners...',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.search),
+                  ),
+                  onChanged: _filterAndSortExaminers,
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Sort Icon with Dropdown Menu
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.sort, size: 28),
+                onSelected: (String newValue) {
+                  setState(() {
+                    _selectedSortOption = newValue;
+                    _sortExaminers();
+                  });
+                },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(
+                    value: 'Name',
+                    child: Text('Sort by Name'),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'ID',
+                    child: Text('Sort by ID'),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
         Expanded(
-          child: filteredExaminers.isEmpty
+          child: _filteredExaminers.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -515,9 +561,9 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                   ),
-                  itemCount: filteredExaminers.length,
+                  itemCount: _filteredExaminers.length,
                   itemBuilder: (ctx, index) {
-                    final examiner = filteredExaminers[index];
+                    final examiner = _filteredExaminers[index];
                     return Card(
                       elevation: 4,
                       child: InkWell(

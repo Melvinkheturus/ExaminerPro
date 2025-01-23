@@ -24,7 +24,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late bool _isDarkMode;
   String? _pdfSaveLocation;
-  double _evaluationRate = 20.0;  // Default rate
+  double _evaluationRate = 20.0; // Default rate
   final _rateController = TextEditingController();
 
   @override
@@ -51,7 +51,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _changePdfLocation() async {
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-    
+
     if (selectedDirectory != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('pdf_save_location', selectedDirectory);
@@ -245,15 +245,17 @@ class _SettingsPageState extends State<SettingsPage> {
                               labelText: 'New Rate (₹)',
                               border: OutlineInputBorder(),
                             ),
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(
+                                decimal: true),
                           ),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton(
                           onPressed: _updateEvaluationRate,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color.fromARGB(255, 98, 0, 238),  // Fixed color for both themes
-                            foregroundColor: Colors.white,  // Text color
+                            backgroundColor: const Color.fromARGB(
+                                255, 98, 0, 238), // Fixed color for both themes
+                            foregroundColor: Colors.white, // Text color
                           ),
                           child: const Text('Update'),
                         ),

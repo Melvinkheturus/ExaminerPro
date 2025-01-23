@@ -20,6 +20,7 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
   bool _isSelectMode = false;
   final DatabaseHelper _dbHelper = DatabaseHelper();
   final TextEditingController _searchController = TextEditingController();
+  String _selectedSortOption = 'Date'; // Default sort option
   final Map<String, bool> _expandedGroups = {};
 
   @override
@@ -34,17 +35,41 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
     super.dispose();
   }
 
-  void _filterHistory(String query) {
+  void _filterAndSortHistory(String query) {
     setState(() {
       _filteredHistory = _history.where((record) {
         final name = record['fullname'].toString().toLowerCase();
         final id = record['examinerid'].toString().toLowerCase();
         final fileName = record['file_path'].split('/').last.toLowerCase();
         final searchQuery = query.toLowerCase();
-        return name.contains(searchQuery) || 
-               id.contains(searchQuery) || 
-               fileName.contains(searchQuery);
+        return name.contains(searchQuery) ||
+            id.contains(searchQuery) ||
+            fileName.contains(searchQuery);
       }).toList();
+
+      _sortHistory(); // Apply sorting after filtering
+    });
+  }
+
+  void _sortHistory() {
+    setState(() {
+      switch (_selectedSortOption) {
+        case 'Date':
+          _filteredHistory.sort((a, b) => DateTime.parse(b['created_at'])
+              .compareTo(DateTime.parse(a['created_at'])));
+          break;
+        case 'Name':
+          _filteredHistory.sort((a, b) =>
+              (a['fullname'] as String).compareTo(b['fullname'] as String));
+          break;
+        case 'File Name':
+          _filteredHistory.sort((a, b) {
+            final aName = a['file_path'].split('/').last;
+            final bName = b['file_path'].split('/').last;
+            return aName.compareTo(bName);
+          });
+          break;
+      }
     });
   }
 
@@ -52,7 +77,8 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
     final history = await _dbHelper.getPdfHistoryWithExaminers();
     setState(() {
       _history = history;
-      _filteredHistory = history;
+      _filteredHistory = List.from(history);
+      _sortHistory(); // Apply initial sort
     });
   }
 
@@ -61,7 +87,8 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete All PDF History'),
-        content: const Text('Are you sure you want to delete all PDF history? This cannot be undone.'),
+        content: const Text(
+            'Are you sure you want to delete all PDF history? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -117,10 +144,11 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
     if (Platform.isWindows) {
       final prefs = await SharedPreferences.getInstance();
       final customLocation = prefs.getString('pdf_save_location');
-      
+
       // Use the custom location if set, otherwise extract from file path
-      final directory = customLocation ?? filePath.substring(0, filePath.lastIndexOf('\\'));
-      
+      final directory =
+          customLocation ?? filePath.substring(0, filePath.lastIndexOf('\\'));
+
       Process.run('explorer.exe', [directory]);
     }
   }
@@ -151,7 +179,7 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
       // Get the documents directory
       final directory = await getApplicationDocumentsDirectory();
       final baseDir = Directory('${directory.path}/Chief Examiner');
-      
+
       // Create base directory if it doesn't exist
       if (!await baseDir.exists()) {
         await baseDir.create(recursive: true);
@@ -159,7 +187,8 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
 
       // Group selected items by examiner
       final groupedFiles = <String, List<Map<String, dynamic>>>{};
-      for (var item in _filteredHistory.where((item) => _selectedItems.contains(item['id']))) {
+      for (var item in _filteredHistory
+          .where((item) => _selectedItems.contains(item['id']))) {
         final examinerName = item['fullname'] ?? 'Unknown';
         groupedFiles.putIfAbsent(examinerName, () => []).add(item);
       }
@@ -208,7 +237,7 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
     try {
       final directory = await getApplicationDocumentsDirectory();
       final baseDir = Directory('${directory.path}/Chief Examiner');
-      
+
       if (!await baseDir.exists()) {
         await baseDir.create(recursive: true);
       }
@@ -254,16 +283,19 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
 
   Map<String, List<Map<String, dynamic>>> _groupHistoryByExaminer() {
     final grouped = <String, List<Map<String, dynamic>>>{};
-    
+
     // First, add overall reports if they exist
-    final overallReports = _filteredHistory.where((item) => item['is_overall_report'] == 1).toList();
+    final overallReports = _filteredHistory
+        .where((item) => item['is_overall_report'] == 1)
+        .toList();
     if (overallReports.isNotEmpty) {
       grouped['Overall Reports'] = overallReports;
       _expandedGroups.putIfAbsent('Overall Reports', () => true);
     }
-    
+
     // Then add the rest of the PDFs
-    for (var item in _filteredHistory.where((item) => item['is_overall_report'] != 1)) {
+    for (var item
+        in _filteredHistory.where((item) => item['is_overall_report'] != 1)) {
       final examinerName = item['fullname'] ?? 'Unknown Examiner';
       if (!grouped.containsKey(examinerName)) {
         grouped[examinerName] = [];
@@ -279,19 +311,54 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
     return Scaffold(
       body: Column(
         children: [
-          // Search Bar
+          // Search and Sort Bar
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search PDFs...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+            child: Row(
+              children: [
+                // Search Bar
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      labelText: 'Search PDFs...',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      prefixIcon: const Icon(Icons.search),
+                    ),
+                    onChanged: _filterAndSortHistory,
+                  ),
                 ),
-              ),
-              onChanged: _filterHistory,
+                const SizedBox(width: 8),
+
+                // Sort Icon with Dropdown Menu
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.sort, size: 28),
+                  tooltip: 'Sort by',
+                  onSelected: (String newValue) {
+                    setState(() {
+                      _selectedSortOption = newValue;
+                      _sortHistory();
+                    });
+                  },
+                  itemBuilder: (BuildContext context) =>
+                      <PopupMenuEntry<String>>[
+                    const PopupMenuItem<String>(
+                      value: 'Date',
+                      child: Text('Sort by Date'),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'Name',
+                      child: Text('Sort by Name'),
+                    ),
+                    const PopupMenuItem<String>(
+                      value: 'File Name',
+                      child: Text('Sort by File Name'),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
 
@@ -320,7 +387,8 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isSelectMode ? Colors.grey : const Color(0xFF6200EE),
+                      backgroundColor:
+                          _isSelectMode ? Colors.grey : const Color(0xFF6200EE),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -353,14 +421,17 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    onPressed: (!_isSelectMode || _selectedItems.isEmpty) ? null : _downloadSelected,
+                    onPressed: (!_isSelectMode || _selectedItems.isEmpty)
+                        ? null
+                        : _downloadSelected,
                   ),
                 ),
                 const SizedBox(width: 8),
                 // Download All Button
                 Expanded(
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.download_for_offline, color: Colors.white),
+                    icon: const Icon(Icons.download_for_offline,
+                        color: Colors.white),
                     label: const Text(
                       'Download All',
                       style: TextStyle(
@@ -392,7 +463,7 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
                       final groupedHistory = _groupHistoryByExaminer();
                       final examinerName = groupedHistory.keys.elementAt(index);
                       final examinerRecords = groupedHistory[examinerName]!;
-                      
+
                       return Card(
                         margin: const EdgeInsets.all(8),
                         child: Column(
@@ -408,19 +479,23 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
                               ),
                               leading: _isSelectMode
                                   ? Checkbox(
-                                      value: examinerRecords.every(
-                                        (record) => _selectedItems.contains(record['id'])),
+                                      value: examinerRecords.every((record) =>
+                                          _selectedItems
+                                              .contains(record['id'])),
                                       onChanged: (bool? value) {
                                         setState(() {
                                           if (value == true) {
                                             // Select all records for this examiner
-                                            for (var record in examinerRecords) {
+                                            for (var record
+                                                in examinerRecords) {
                                               _selectedItems.add(record['id']);
                                             }
                                           } else {
                                             // Deselect all records for this examiner
-                                            for (var record in examinerRecords) {
-                                              _selectedItems.remove(record['id']);
+                                            for (var record
+                                                in examinerRecords) {
+                                              _selectedItems
+                                                  .remove(record['id']);
                                             }
                                           }
                                         });
@@ -439,13 +514,14 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
                                   ),
                                   IconButton(
                                     icon: Icon(
-                                      _expandedGroups[examinerName]! 
-                                          ? Icons.expand_less 
+                                      _expandedGroups[examinerName]!
+                                          ? Icons.expand_less
                                           : Icons.expand_more,
                                     ),
                                     onPressed: () {
                                       setState(() {
-                                        _expandedGroups[examinerName] = !_expandedGroups[examinerName]!;
+                                        _expandedGroups[examinerName] =
+                                            !_expandedGroups[examinerName]!;
                                       });
                                     },
                                   ),
@@ -460,8 +536,9 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
                                 itemCount: examinerRecords.length,
                                 itemBuilder: (context, recordIndex) {
                                   final record = examinerRecords[recordIndex];
-                                  final isSelected = _selectedItems.contains(record['id']);
-                                  
+                                  final isSelected =
+                                      _selectedItems.contains(record['id']);
+
                                   return ListTile(
                                     leading: _isSelectMode
                                         ? Checkbox(
@@ -469,9 +546,11 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
                                             onChanged: (bool? value) {
                                               setState(() {
                                                 if (value == true) {
-                                                  _selectedItems.add(record['id']);
+                                                  _selectedItems
+                                                      .add(record['id']);
                                                 } else {
-                                                  _selectedItems.remove(record['id']);
+                                                  _selectedItems
+                                                      .remove(record['id']);
                                                 }
                                               });
                                             },
@@ -492,29 +571,36 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               IconButton(
-                                                icon: const Icon(Icons.visibility),
+                                                icon: const Icon(
+                                                    Icons.visibility),
                                                 color: Colors.blue,
-                                                onPressed: () => _openPdf(record['file_path']),
+                                                onPressed: () => _openPdf(
+                                                    record['file_path']),
                                               ),
                                               IconButton(
-                                                icon: const Icon(Icons.folder_open),
+                                                icon: const Icon(
+                                                    Icons.folder_open),
                                                 color: Colors.amber,
-                                                onPressed: () => _showInExplorer(record['file_path']),
+                                                onPressed: () =>
+                                                    _showInExplorer(
+                                                        record['file_path']),
                                               ),
                                               IconButton(
                                                 icon: const Icon(Icons.delete),
                                                 color: Colors.red,
-                                                onPressed: () => _deletePdf(record['id'], record['file_path']),
+                                                onPressed: () => _deletePdf(
+                                                    record['id'],
+                                                    record['file_path']),
                                               ),
                                             ],
                                           ),
                                   );
                                 },
-                ),
-              ],
-            ),
-          );
-        },
+                              ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
           ),
         ],
