@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="ExaminerProDatas.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="0"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="4393"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><table title="Examiners" custom_title="0" dock_id="1" table="4,9:mainExaminers"/><dock_state state="000000ff00000000fd00000001000000020000000000000000fc0100000001fb000000160064006f0063006b00420072006f00770073006500310100000000ffffffff0000011e00ffffff000000000000000000000004000000040000000800000008fc00000000"/><default_encoding codec=""/><browse_table_settings/></tab_browse><tab_sql><sql name="SQL 1*">-- Combined SQL schema for ExaminerPro application
+
+-- Table: Examiners
+CREATE TABLE Examiners (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,       -- Unique ID (auto-generated)
+    fullName TEXT NOT NULL,                     -- Examiner's full name
+    examinerId TEXT NOT NULL UNIQUE,            -- Unique identifier for examiner
+    department TEXT NOT NULL,                   -- Department name
+    position TEXT NOT NULL,                     -- Position (e.g., Professor, Lecturer)
+    email TEXT NOT NULL,                        -- Email address
+    phone TEXT NOT NULL,                        -- Phone number
+    profilePicturePath TEXT                     -- File path to uploaded picture
+);
+
+-- Table: PDF History
+CREATE TABLE pdf_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,       -- Unique ID for each PDF entry
+    filename TEXT NOT NULL,                     -- Name of the PDF file
+    file_path TEXT NOT NULL,                    -- Path where the PDF is stored
+    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Date and time of upload
+    file_size INTEGER,                          -- Size of the file in bytes
+    last_accessed TIMESTAMP                     -- Last accessed timestamp
+);
+
+-- Table: Calculation History
+CREATE TABLE calculation_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,       -- Unique ID for each calculation
+    examiner_name TEXT NOT NULL,                -- Name of the examiner involved in the calculation
+    operation_type TEXT NOT NULL,               -- Type of operation performed
+    input_values TEXT NOT NULL,                 -- Inputs provided for the calculation
+    result TEXT NOT NULL,                       -- Result of the calculation
+    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,   -- Date and time of calculation
+    base_salary REAL,                           -- Base salary component (if applicable)
+    incentives REAL,                            -- Incentive component (if applicable)
+    total_salary REAL,                          -- Total salary (if applicable)
+    pdf_id INTEGER,                             -- Link to related PDF (if applicable)
+    FOREIGN KEY (pdf_id) REFERENCES pdf_history(id) -- Relationship with PDF history
+);
+
+-- Indexes for improved query performance
+CREATE INDEX idx_pdf_filename ON pdf_history(filename);
+CREATE INDEX idx_calculation_date ON calculation_history(date);
+</sql><current_tab id="0"/></tab_sql></sqlb_project>
