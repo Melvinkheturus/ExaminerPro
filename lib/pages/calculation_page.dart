@@ -6,16 +6,21 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/app_colors.dart';
+import 'package:open_file_plus/open_file_plus.dart';
+import 'package:pdf/pdf.dart'; // Add this import for PdfColors
 
 class EvaluationDay {
   final DateTime date;
   final int staffCount;
   final int papersEvaluated;
+  final List<int> staffPapersList;
 
   EvaluationDay({
     required this.date,
     required this.staffCount,
     required this.papersEvaluated,
+    required this.staffPapersList,
   });
 }
 
@@ -40,6 +45,13 @@ class _CalculationPageState extends State<CalculationPage> {
   double _totalSalary = 0;
   double _baseSalary = 0;
   double _incentiveAmount = 0;
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,9 +61,10 @@ class _CalculationPageState extends State<CalculationPage> {
           'Chief Examiner Calculator',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFF6200EE),
+        backgroundColor: AppColors.primary,
       ),
       body: SingleChildScrollView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(20),
         child: Center(
           child: ConstrainedBox(
@@ -64,41 +77,52 @@ class _CalculationPageState extends State<CalculationPage> {
                   margin: const EdgeInsets.only(bottom: 30),
                   width: double.infinity,
                   child: Card(
-                    elevation: 4,
+                    elevation: 2,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    color: const Color(0xFF6200EE),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 24, horizontal: 20),
-                      child: Column(
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
                         children: [
-                          const Text(
-                            'CHIEF EXAMINER',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                              color: Colors.white,
+                          // Avatar/Profile Icon
+                          CircleAvatar(
+                            radius: 30,
+                            backgroundColor: AppColors.primary.withOpacity(0.1),
+                            child: Text(
+                              widget.examiner['fullname'][0].toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 12, horizontal: 24),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              widget.examiner['fullname'],
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w500,
-                                color: Color(0xFF6200EE),
-                              ),
-                              textAlign: TextAlign.center,
+                          const SizedBox(width: 20),
+                          // Name and Title
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Chief Examiner',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  widget.examiner['fullname'],
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -138,7 +162,7 @@ class _CalculationPageState extends State<CalculationPage> {
                                     icon: const Icon(
                                       Icons.calendar_today,
                                       size: 28,
-                                      color: Color(0xFF6200EE),
+                                      color: AppColors.primary,
                                     ),
                                     label: Text(
                                       _selectedDate == null
@@ -147,7 +171,7 @@ class _CalculationPageState extends State<CalculationPage> {
                                               .format(_selectedDate!),
                                       style: const TextStyle(
                                         fontSize: 18,
-                                        color: Color(0xFF6200EE),
+                                        color: AppColors.primary,
                                       ),
                                     ),
                                     style: TextButton.styleFrom(
@@ -157,7 +181,7 @@ class _CalculationPageState extends State<CalculationPage> {
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                         side: const BorderSide(
-                                            color: Color(0xFF6200EE)),
+                                            color: AppColors.primary),
                                       ),
                                     ),
                                     onPressed: _selectDate,
@@ -174,9 +198,14 @@ class _CalculationPageState extends State<CalculationPage> {
                                       labelText: 'Number Of Examiners',
                                       labelStyle: const TextStyle(
                                         fontSize: 16,
+                                        color: Colors.black87,
                                       ),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      focusedBorder: const OutlineInputBorder(
+                                        borderSide: BorderSide(
+                                            color: AppColors.primary, width: 2),
                                       ),
                                       filled: true,
                                       contentPadding:
@@ -188,6 +217,7 @@ class _CalculationPageState extends State<CalculationPage> {
                                     style: const TextStyle(
                                       fontSize: 18,
                                     ),
+                                    cursorColor: AppColors.primary,
                                     keyboardType: TextInputType.number,
                                   ),
                                 ),
@@ -210,7 +240,7 @@ class _CalculationPageState extends State<CalculationPage> {
                                   ),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF6200EE),
+                                  backgroundColor: AppColors.primary,
                                   foregroundColor: Colors.white,
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 15),
@@ -278,10 +308,42 @@ class _CalculationPageState extends State<CalculationPage> {
                                   fontWeight: FontWeight.w500,
                                 ),
                                 columns: const [
-                                  DataColumn(label: Text('Date')),
-                                  DataColumn(label: Text('Staff Count')),
-                                  DataColumn(label: Text('Papers')),
-                                  DataColumn(label: Text('Actions')),
+                                  DataColumn(
+                                    label: Text(
+                                      'Date',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Staff Count',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Papers',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
+                                  DataColumn(
+                                    label: Text(
+                                      'Actions',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ),
                                 ],
                                 rows: _evaluationDays.map((day) {
                                   return DataRow(
@@ -298,9 +360,13 @@ class _CalculationPageState extends State<CalculationPage> {
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             IconButton(
-                                              icon: const Icon(Icons.edit),
-                                              color: const Color(0xFF6200EE),
+                                              icon: const Icon(
+                                                Icons.edit,
+                                                size: 20,
+                                              ),
                                               onPressed: () => _editDay(day),
+                                              color: const Color.fromARGB(
+                                                  255, 29, 30, 31),
                                             ),
                                             IconButton(
                                               icon: const Icon(Icons.delete),
@@ -338,7 +404,7 @@ class _CalculationPageState extends State<CalculationPage> {
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF6200EE),
+                            backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 15),
                             minimumSize: const Size.fromHeight(60),
@@ -409,17 +475,18 @@ class _CalculationPageState extends State<CalculationPage> {
                             const SizedBox(height: 10),
                             ResultRow(
                               label: 'Base Salary',
-                              value: '₹${_baseSalary.toStringAsFixed(2)}',
+                              value: 'Rs.${_baseSalary.toStringAsFixed(2)}',
                             ),
                             const SizedBox(height: 10),
                             ResultRow(
                               label: 'Incentive Amount',
-                              value: '₹${_incentiveAmount.toStringAsFixed(2)}',
+                              value:
+                                  'Rs.${_incentiveAmount.toStringAsFixed(2)}',
                             ),
                             const Divider(height: 30),
                             ResultRow(
                               label: 'Net Amount',
-                              value: '₹${_totalSalary.toStringAsFixed(2)}',
+                              value: 'Rs.${_totalSalary.toStringAsFixed(2)}',
                               isTotal: true,
                             ),
                           ],
@@ -519,19 +586,23 @@ class _CalculationPageState extends State<CalculationPage> {
       return;
     }
 
-    final papersEvaluated = await Navigator.push<int>(
+    final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
-        builder: (context) => StaffDetailsPage(staffCount: staffCount),
+        builder: (context) => StaffDetailsPage(
+          staffCount: staffCount,
+          initialPapersList: null,
+        ),
       ),
     );
 
-    if (papersEvaluated != null) {
+    if (result != null) {
       setState(() {
         _evaluationDays.add(EvaluationDay(
           date: _selectedDate!,
           staffCount: staffCount,
-          papersEvaluated: papersEvaluated,
+          papersEvaluated: result['total'],
+          staffPapersList: result['papersList'],
         ));
       });
     }
@@ -563,13 +634,20 @@ class _CalculationPageState extends State<CalculationPage> {
       final totalPapers = _getTotalPapers();
       _baseSalary = _evaluationDays.fold(0.0, (sum, day) {
         final papersPerStaff = day.papersEvaluated / day.staffCount;
-        return sum + (papersPerStaff * ratePerPaper); // Use configured rate
+        return sum + (papersPerStaff * ratePerPaper);
       });
-      _incentiveAmount = (totalPapers *
-          0.1 *
-          ratePerPaper); // Use configured rate for incentive too
+      _incentiveAmount = (totalPapers * 0.1 * ratePerPaper);
       _totalSalary = _baseSalary + _incentiveAmount;
     });
+
+    await Future.delayed(const Duration(milliseconds: 100));
+    if (_scrollController.hasClients) {
+      await _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   void _refresh() {
@@ -595,8 +673,9 @@ class _CalculationPageState extends State<CalculationPage> {
       await widget.dbHelper.insertEvaluation({
         'examiner_id': widget.examiner['id'],
         'date': DateTime.now().toIso8601String(),
-        'total_staff': _evaluationDays.fold<int>(0, (sum, day) => sum + day.staffCount),
-        'papers_evaluated': _getTotalPapers(),
+        'total_staff':
+            _evaluationDays.fold<int>(0, (sum, day) => sum + day.staffCount),
+        'total_papers': _getTotalPapers(),
         'base_salary': _baseSalary,
         'incentive_amount': _incentiveAmount,
         'total_salary': _totalSalary,
@@ -623,277 +702,410 @@ class _CalculationPageState extends State<CalculationPage> {
       return;
     }
 
-    final pdf = pw.Document();
+    try {
+      final pdf = pw.Document();
 
-    pdf.addPage(
-      pw.Page(
-        build: (context) => pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            // Header Section
-            pw.Center(
-              child: pw.Column(
-                children: [
-                  pw.Text(
-                    'GURU NANAK COLLEGE (AUTONOMOUS)',
-                    style: pw.TextStyle(
-                      fontSize: 16,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.SizedBox(height: 4),
-                  pw.Text(
-                    'Affiliated to University of Madras | Accredited \'A++\' Grade by NAAC',
-                    style: const pw.TextStyle(fontSize: 10),
-                  ),
-                  pw.SizedBox(height: 4),
-                  pw.Text(
-                    'CONTROLLER OF EXAMINATIONS',
-                    style: pw.TextStyle(
-                      fontSize: 12,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.SizedBox(height: 10),
-                  pw.Text(
-                    'CHIEF EXAMINER SALARY REPORT',
-                    style: pw.TextStyle(
-                      fontSize: 14,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            pw.SizedBox(height: 20),
-
-            // Chief Examiner Details Section
-            pw.Container(
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(),
-              ),
-              child: pw.Padding(
-                padding: const pw.EdgeInsets.all(10),
+      // Add Summary Page
+      pdf.addPage(
+        pw.Page(
+          build: (context) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header
+              pw.Center(
                 child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'CHIEF EXAMINER DETAILS',
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                      'GURU NANAK COLLEGE (AUTONOMOUS)',
+                      style: pw.TextStyle(
+                        fontSize: 16,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'Affiliated to University of Madras | Accredited \'A++\' Grade by NAAC',
+                      style: const pw.TextStyle(fontSize: 10),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'CONTROLLER OF EXAMINATIONS',
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
                     pw.SizedBox(height: 10),
-                    pw.Row(
-                      children: [
-                        pw.SizedBox(width: 100, child: pw.Text('Name')),
-                        pw.Text(': ${widget.examiner['fullname']}'),
-                      ],
+                    pw.Text(
+                      'CHIEF EXAMINERS SUMMARY REPORT',
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
-                    pw.Row(
-                      children: [
-                        pw.SizedBox(width: 100, child: pw.Text('ID')),
-                        pw.Text(': ${widget.examiner['examinerid']}'),
-                      ],
-                    ),
-                    pw.Row(
-                      children: [
-                        pw.SizedBox(width: 100, child: pw.Text('Department')),
-                        pw.Text(': ${widget.examiner['department']}'),
-                      ],
-                    ),
-                    pw.Row(
-                      children: [
-                        pw.SizedBox(width: 100, child: pw.Text('Staff Count')),
-                        pw.Text(
-                            ': ${_evaluationDays.fold<int>(0, (sum, day) => sum + day.staffCount)}'),
-                      ],
-                    ),
-                    pw.Row(
-                      children: [
-                        pw.SizedBox(width: 100, child: pw.Text('Date')),
-                        pw.Text(
-                            ': ${DateFormat('dd/MM/yyyy').format(_selectedDate!)}'),
-                      ],
+                    pw.Text(
+                      DateFormat('dd/MM/yyyy').format(DateTime.now()),
+                      style: const pw.TextStyle(fontSize: 10),
                     ),
                   ],
                 ),
               ),
-            ),
-            pw.SizedBox(height: 20),
+              pw.SizedBox(height: 20),
 
-            // Evaluation Summary Section
-            pw.Text(
-              'EVALUATION SUMMARY',
-              style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-            ),
-            pw.SizedBox(height: 10),
-            pw.Table(
-              border: pw.TableBorder.all(),
-              children: [
-                pw.TableRow(
-                  children: [
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Date'),
+              // Summary Table
+              pw.Table(
+                border: pw.TableBorder.all(),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(3), // Name
+                  1: const pw.FlexColumnWidth(2), // ID
+                  2: const pw.FlexColumnWidth(2), // Total Staff
+                  3: const pw.FlexColumnWidth(2), // Papers
+                  4: const pw.FlexColumnWidth(2), // Total Salary
+                },
+                children: [
+                  // Table Header
+                  pw.TableRow(
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.grey300,
                     ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Number of Examiners'),
-                    ),
-                    pw.Padding(
-                      padding: const pw.EdgeInsets.all(5),
-                      child: pw.Text('Papers Evaluated'),
-                    ),
-                  ],
-                ),
-                ..._evaluationDays.map(
-                  (day) => pw.TableRow(
                     children: [
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(5),
                         child: pw.Text(
-                          DateFormat('dd/MM/yyyy').format(day.date),
+                          'Chief Examiner Name',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                         ),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(5),
-                        child: pw.Text(day.staffCount.toString()),
+                        child: pw.Text(
+                          'ID',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
                       ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(5),
-                        child: pw.Text(day.papersEvaluated.toString()),
+                        child: pw.Text(
+                          'Total Staff',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          'Papers',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          'Total Salary',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-            pw.SizedBox(height: 20),
-
-            // Calculation Results Section
-            pw.Container(
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(),
+                  // Table Data
+                  pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(widget.examiner['fullname']),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(widget.examiner['examinerid']),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          _evaluationDays
+                              .fold<int>(0, (sum, day) => sum + day.staffCount)
+                              .toString(),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(_getTotalPapers().toString()),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          NumberFormat.currency(
+                            symbol: 'Rs.',
+                            decimalDigits: 2,
+                          ).format(_totalSalary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              child: pw.Padding(
-                padding: const pw.EdgeInsets.all(10),
+            ],
+          ),
+        ),
+      );
+
+      // Add the existing detailed report page
+      pdf.addPage(
+        pw.Page(
+          build: (context) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header Section
+              pw.Center(
                 child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'CALCULATION RESULTS',
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                      'GURU NANAK COLLEGE (AUTONOMOUS)',
+                      style: pw.TextStyle(
+                        fontSize: 16,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'Affiliated to University of Madras | Accredited \'A++\' Grade by NAAC',
+                      style: const pw.TextStyle(fontSize: 10),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'CONTROLLER OF EXAMINATIONS',
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
                     pw.SizedBox(height: 10),
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text('Total Papers Evaluated'),
-                        pw.Text('${_getTotalPapers()}'),
-                      ],
-                    ),
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text('Base Salary'),
-                        pw.Text('Rs.${_baseSalary.toStringAsFixed(2)}'),
-                      ],
-                    ),
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text('Incentive Amount'),
-                        pw.Text('Rs.${_incentiveAmount.toStringAsFixed(2)}'),
-                      ],
-                    ),
-                    pw.Divider(),
-                    pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text(
-                          'Net Amount',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                        pw.Text(
-                          'Rs.${_totalSalary.toStringAsFixed(2)}',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ],
+                    pw.Text(
+                      'CHIEF EXAMINER SALARY REPORT',
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
+              pw.SizedBox(height: 20),
+
+              // Chief Examiner Details Section
+              pw.Container(
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(),
+                ),
+                child: pw.Padding(
+                  padding: const pw.EdgeInsets.all(10),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'CHIEF EXAMINER DETAILS',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                      ),
+                      pw.SizedBox(height: 10),
+                      pw.Row(
+                        children: [
+                          pw.SizedBox(width: 100, child: pw.Text('Name')),
+                          pw.Text(': ${widget.examiner['fullname']}'),
+                        ],
+                      ),
+                      pw.Row(
+                        children: [
+                          pw.SizedBox(width: 100, child: pw.Text('ID')),
+                          pw.Text(': ${widget.examiner['examinerid']}'),
+                        ],
+                      ),
+                      pw.Row(
+                        children: [
+                          pw.SizedBox(width: 100, child: pw.Text('Department')),
+                          pw.Text(': ${widget.examiner['department']}'),
+                        ],
+                      ),
+                      pw.Row(
+                        children: [
+                          pw.SizedBox(
+                              width: 100, child: pw.Text('Staff Count')),
+                          pw.Text(
+                              ': ${_evaluationDays.fold<int>(0, (sum, day) => sum + day.staffCount)}'),
+                        ],
+                      ),
+                      pw.Row(
+                        children: [
+                          pw.SizedBox(width: 100, child: pw.Text('Date')),
+                          pw.Text(
+                              ': ${DateFormat('dd/MM/yyyy').format(_selectedDate!)}'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              pw.SizedBox(height: 20),
+
+              // Evaluation Summary Section
+              pw.Text(
+                'EVALUATION SUMMARY',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Table(
+                border: pw.TableBorder.all(),
+                children: [
+                  pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text('Date'),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text('Number of Examiners'),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text('Papers Evaluated'),
+                      ),
+                    ],
+                  ),
+                  ..._evaluationDays.map(
+                    (day) => pw.TableRow(
+                      children: [
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(5),
+                          child: pw.Text(
+                            DateFormat('dd/MM/yyyy').format(day.date),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(5),
+                          child: pw.Text(day.staffCount.toString()),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(5),
+                          child: pw.Text(day.papersEvaluated.toString()),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+
+              // Calculation Results Section
+              pw.Container(
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(),
+                ),
+                child: pw.Padding(
+                  padding: const pw.EdgeInsets.all(10),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'CALCULATION RESULTS',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                      ),
+                      pw.SizedBox(height: 10),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('Total Papers Evaluated'),
+                          pw.Text('${_getTotalPapers()}'),
+                        ],
+                      ),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('Base Salary'),
+                          pw.Text('Rs.${_baseSalary.toStringAsFixed(2)}'),
+                        ],
+                      ),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('Incentive Amount'),
+                          pw.Text('Rs.${_incentiveAmount.toStringAsFixed(2)}'),
+                        ],
+                      ),
+                      pw.Divider(),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text(
+                            'Net Amount',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.Text(
+                            'Rs.${_totalSalary.toStringAsFixed(2)}',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
+      );
 
-    final prefs = await SharedPreferences.getInstance();
-    final customLocation = prefs.getString('pdf_save_location');
-    final String savePath;
+      // Save PDF file
+      final output = await getTemporaryDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName =
+          'chief_examiner_report_${widget.examiner['examinerid']}_$timestamp.pdf';
+      final filePath = '${output.path}/$fileName';
+      final file = File(filePath);
+      await file.writeAsBytes(await pdf.save());
 
-    if (customLocation != null) {
-      savePath = customLocation;
-    } else {
-      final directory = await getApplicationDocumentsDirectory();
-      savePath = directory.path;
+      // Save to PDF history
+      await widget.dbHelper.insertPdfHistory({
+        'examiner_id': widget.examiner['id'],
+        'file_path': filePath,
+        'created_at': DateTime.now().toIso8601String(),
+        'is_overall_report': 0, // 0 for individual reports
+      });
+
+      // Open the PDF
+      OpenFile.open(filePath);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('PDF generated and saved successfully')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error generating PDF: $e')),
+      );
     }
-
-    final file = File(
-      await _getUniqueFileName(savePath, widget.examiner['fullname']),
-    );
-
-    await file.writeAsBytes(await pdf.save());
-
-    await widget.dbHelper.insertPdfHistory({
-      'examiner_id': widget.examiner['id'],
-      'file_path': file.path,
-      'created_at': DateTime.now().toIso8601String(),
-    });
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('PDF saved to: ${file.path}'),
-        duration: const Duration(seconds: 5),
-      ),
-    );
-  }
-
-  Future<String> _getUniqueFileName(
-      String basePath, String examinerName) async {
-    String fileName = '$basePath/${examinerName}_Salary_Report.pdf';
-    int counter = 1;
-
-    while (await File(fileName).exists()) {
-      fileName = '$basePath/${examinerName}_Salary_Report_$counter.pdf';
-      counter++;
-    }
-
-    return fileName;
   }
 
   void _editDay(EvaluationDay day) async {
     _selectedDate = day.date;
     _staffCountController.text = day.staffCount.toString();
 
-    final papersEvaluated = await Navigator.push<int>(
+    final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
         builder: (context) => StaffDetailsPage(
           staffCount: day.staffCount,
-          initialPapers: day.papersEvaluated,
+          initialPapersList: day.staffPapersList,
         ),
       ),
     );
 
-    if (papersEvaluated != null) {
+    if (result != null) {
       setState(() {
         _evaluationDays.remove(day);
         _evaluationDays.add(EvaluationDay(
           date: _selectedDate!,
           staffCount: day.staffCount,
-          papersEvaluated: papersEvaluated,
+          papersEvaluated: result['total'],
+          staffPapersList: List<int>.from(result['papersList']),
         ));
       });
     }

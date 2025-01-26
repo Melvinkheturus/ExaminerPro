@@ -72,13 +72,13 @@ class _ExaminerProAppState extends State<ExaminerProApp> {
       title: 'ExaminerPro',
       theme: ThemeData(
         // Light Theme
-        primaryColor: const Color.fromARGB(255, 98, 0, 238),
+        primaryColor: AppColors.primary,
         scaffoldBackgroundColor: Colors.white,
         brightness: Brightness.light,
 
         // AppBar Theme
         appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.primaryColor,
+          backgroundColor: AppColors.primary,
           elevation: 0,
           iconTheme: IconThemeData(color: Colors.white),
           titleTextStyle: TextStyle(
@@ -107,15 +107,15 @@ class _ExaminerProAppState extends State<ExaminerProApp> {
       ),
       darkTheme: ThemeData(
         // Dark Theme
-        primaryColor: AppColors.primaryColor,
+        primaryColor: AppColors.primary,
         scaffoldBackgroundColor: const Color(0xFF121212),
         brightness: Brightness.dark,
 
         // AppBar Theme
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.grey[900],
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.primary,
           elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.white),
+          iconTheme: IconThemeData(color: Colors.white),
         ),
 
         // Text Theme
@@ -149,7 +149,7 @@ class _ExaminerProAppState extends State<ExaminerProApp> {
         // Elevated Button Theme
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primaryColor,
+            backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
           ),
         ),
@@ -188,6 +188,7 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
   String _selectedSortOption = 'Name';
   final bool _isSidebarCollapsed = false;
   late AnimationController _animationController;
+  bool _isGridView = true; // To toggle between grid and list view
 
   @override
   void initState() {
@@ -258,6 +259,12 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
           break;
         // Add more sorting options if needed
       }
+    });
+  }
+
+  void _toggleView() {
+    setState(() {
+      _isGridView = !_isGridView;
     });
   }
 
@@ -337,6 +344,7 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
                       builder: (ctx) => SettingsPage(
                         isDarkMode: widget.isDarkMode,
                         onThemeChanged: widget.onThemeChanged!,
+                        dbHelper: _dbHelper,
                       ),
                     ),
                   );
@@ -447,8 +455,9 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
       ),
       floatingActionButton: _tabController.index == 0
           ? FloatingActionButton(
+              backgroundColor: AppColors.primary,
               onPressed: _addExaminer,
-              child: const Icon(Icons.add),
+              child: const Icon(Icons.add, color: Colors.white),
             )
           : null,
     );
@@ -465,15 +474,15 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
         leading: Icon(
           icon,
           color: isSelected
-              ? AppColors.primaryColor
-              : (isDark ? Colors.white70 : Colors.black54),
+              ? AppColors.primary
+              : (isDark ? Colors.white : const Color(0xFF2D2D2D)),
         ),
         title: Text(
           label,
           style: TextStyle(
             fontSize: 16,
             color: isSelected
-                ? AppColors.primaryColor
+                ? AppColors.primary
                 : (isDark ? Colors.white : const Color(0xFF2D2D2D)),
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
@@ -491,6 +500,8 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
   }
 
   Widget _buildDashboardTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Column(
       children: [
         // Search and Sort Bar
@@ -498,21 +509,29 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
           padding: const EdgeInsets.all(8.0),
           child: Row(
             children: [
-              // Search Bar
               Expanded(
                 child: TextField(
                   controller: _searchController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Search examiners...',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.search),
+                    border: const OutlineInputBorder(),
+                    focusedBorder: const OutlineInputBorder(
+                      borderSide:
+                          BorderSide(color: AppColors.primary, width: 2),
+                    ),
+                    labelStyle: TextStyle(
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
                   ),
+                  cursorColor: AppColors.primary,
                   onChanged: _filterAndSortExaminers,
                 ),
               ),
               const SizedBox(width: 8),
-
-              // Sort Icon with Dropdown Menu
               PopupMenuButton<String>(
                 icon: const Icon(Icons.sort, size: 28),
                 onSelected: (String newValue) {
@@ -535,110 +554,239 @@ class ChiefExaminerPageState extends State<ChiefExaminerPage>
             ],
           ),
         ),
+
+        // View Toggle and Count
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Total Profiles: ${_filteredExaminers.length}',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: isDark ? AppColors.textLight : AppColors.textPrimary,
+                ),
+              ),
+              IconButton(
+                icon: Icon(_isGridView ? Icons.view_list : Icons.grid_view),
+                onPressed: _toggleView,
+                tooltip:
+                    _isGridView ? 'Switch to List View' : 'Switch to Grid View',
+                color: AppColors.primary,
+              ),
+            ],
+          ),
+        ),
+
+        // Examiners List/Grid
         Expanded(
           child: _filteredExaminers.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.person_outline,
-                          size: 64, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      const Text('No examiners found'),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _addExaminer,
-                        child: const Text('Add Examiner'),
-                      ),
-                    ],
-                  ),
-                )
-              : GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: 1.0,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                  ),
-                  itemCount: _filteredExaminers.length,
-                  itemBuilder: (ctx, index) {
-                    final examiner = _filteredExaminers[index];
-                    return Card(
-                      elevation: 4,
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            ctx,
-                            MaterialPageRoute(
-                              builder: (ctx) => CalculationPage(
-                                examiner: examiner,
-                                dbHelper: _dbHelper,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircleAvatar(
-                              radius: 40,
-                              backgroundImage: examiner['image_path'] != null
-                                  ? FileImage(File(examiner['image_path']))
-                                  : null,
-                              child: examiner['image_path'] == null
-                                  ? Text(
-                                      examiner['fullname'][0].toUpperCase(),
-                                      style: const TextStyle(fontSize: 32),
-                                    )
-                                  : null,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              examiner['fullname'],
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            Text(
-                              'ID: ${examiner['examinerid']}',
-                              style: const TextStyle(fontSize: 14),
-                              textAlign: TextAlign.center,
-                            ),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(Icons.edit),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      ctx,
-                                      MaterialPageRoute(
-                                        builder: (ctx) => ProfilePage(
-                                          dbHelper: _dbHelper,
-                                          examiner: examiner,
-                                        ),
-                                      ),
-                                    ).then((_) => _loadExaminers());
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete),
-                                  onPressed: () => _showDeleteDialog(examiner),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              ? _buildEmptyState()
+              : _isGridView
+                  ? _buildGridView()
+                  : _buildListView(),
         ),
       ],
     );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.person_outline, size: 64, color: Colors.grey),
+          const SizedBox(height: 16),
+          const Text('No examiners found'),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _addExaminer,
+            child: const Text('Add Examiner'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGridView() {
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        childAspectRatio: 0.85,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: _filteredExaminers.length,
+      itemBuilder: (context, index) =>
+          _buildExaminerCard(_filteredExaminers[index]),
+    );
+  }
+
+  Widget _buildListView() {
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: _filteredExaminers.length,
+      separatorBuilder: (context, index) => const Divider(),
+      itemBuilder: (ctx, index) =>
+          _buildExaminerListTile(_filteredExaminers[index]),
+    );
+  }
+
+  Widget _buildExaminerCard(Map<String, dynamic> examiner) {
+    return Card(
+      elevation: 2,
+      margin: EdgeInsets.zero,
+      child: InkWell(
+        onTap: () => _navigateToCalculation(examiner),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 35,
+                backgroundColor: AppColors.primary.withOpacity(0.1),
+                backgroundImage: examiner['image_path'] != null
+                    ? FileImage(File(examiner['image_path']))
+                    : null,
+                child: examiner['image_path'] == null
+                    ? Text(
+                        examiner['fullname'][0].toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 28,
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                examiner['fullname'],
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                'ID: ${examiner['examinerid']}',
+                style: const TextStyle(fontSize: 13),
+                textAlign: TextAlign.center,
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit, size: 20),
+                    onPressed: () => _navigateToProfile(examiner),
+                    padding: const EdgeInsets.all(8),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.delete,
+                      size: 20,
+                      color: Colors.red,
+                    ),
+                    onPressed: () => _showDeleteDialog(examiner),
+                    padding: const EdgeInsets.all(8),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExaminerListTile(Map<String, dynamic> examiner) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          radius: 25,
+          backgroundColor: AppColors.primary.withOpacity(0.1),
+          backgroundImage: examiner['image_path'] != null
+              ? FileImage(File(examiner['image_path']))
+              : null,
+          child: examiner['image_path'] == null
+              ? Text(
+                  examiner['fullname'][0].toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 20,
+                    color: AppColors.primary,
+                  ),
+                )
+              : null,
+        ),
+        title: Text(
+          examiner['fullname'],
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('ID: ${examiner['examinerid']}'),
+            Text('Department: ${examiner['department']}'),
+          ],
+        ),
+        trailing: SizedBox(
+          width: 96,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () => _navigateToProfile(examiner),
+                tooltip: 'Edit',
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.delete,
+                  color: Colors.red,
+                ),
+                onPressed: () => _showDeleteDialog(examiner),
+                tooltip: 'Delete',
+              ),
+            ],
+          ),
+        ),
+        onTap: () => _navigateToCalculation(examiner),
+      ),
+    );
+  }
+
+  void _navigateToCalculation(Map<String, dynamic> examiner) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => CalculationPage(
+          examiner: examiner,
+          dbHelper: _dbHelper,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToProfile(Map<String, dynamic> examiner) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (ctx) => ProfilePage(
+          dbHelper: _dbHelper,
+          examiner: examiner,
+        ),
+      ),
+    ).then((_) => _loadExaminers());
   }
 
   Future<void> _showDeleteDialog(Map<String, dynamic> examiner) async {

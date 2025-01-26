@@ -6,15 +6,18 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite/sqflite.dart';
 import '../helpers/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/app_colors.dart';
 
 class SettingsPage extends StatefulWidget {
   final bool isDarkMode;
   final Function(bool) onThemeChanged;
+  final DatabaseHelper dbHelper;
 
   const SettingsPage({
     super.key,
     required this.isDarkMode,
     required this.onThemeChanged,
+    required this.dbHelper,
   });
 
   @override
@@ -49,35 +52,41 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
-  Future<void> _changePdfLocation() async {
-    String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
-
-    if (selectedDirectory != null) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('pdf_save_location', selectedDirectory);
-      setState(() {
-        _pdfSaveLocation = selectedDirectory;
-      });
-    }
-  }
-
   Future<void> _updateEvaluationRate() async {
-    final newRate = double.tryParse(_rateController.text);
-    if (newRate != null && newRate > 0) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('evaluation_rate', newRate);
-      setState(() {
-        _evaluationRate = newRate;
-      });
-      if (mounted) {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Update Evaluation Rate'),
+        content: Text(
+          'Are you sure you want to update the evaluation rate to Rs.${_rateController.text}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Update',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final rate = double.tryParse(_rateController.text);
+      if (rate != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setDouble('evaluation_rate', rate);
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Evaluation rate updated successfully')),
-        );
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please enter a valid rate')),
         );
       }
     }
@@ -164,6 +173,88 @@ class _SettingsPageState extends State<SettingsPage> {
     await dbHelper.database;
   }
 
+  Future<void> _clearAllData() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear All Data'),
+        content: const Text(
+          'This will permanently delete all examiners, calculations, and PDF history. This action cannot be undone.\n\nAre you sure you want to continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Clear All Data',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await widget.dbHelper.clearAllData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All data cleared successfully')),
+      );
+    }
+  }
+
+  Future<void> _updatePdfSaveLocation() async {
+    final String? selectedDirectory =
+        await FilePicker.platform.getDirectoryPath();
+
+    if (selectedDirectory != null) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Update PDF Save Location'),
+          content: Text(
+            'Set PDF save location to:\n$selectedDirectory',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'Update',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('pdf_save_location', selectedDirectory);
+        setState(() {
+          _pdfSaveLocation = selectedDirectory;
+        });
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('PDF save location updated successfully')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -186,11 +277,12 @@ class _SettingsPageState extends State<SettingsPage> {
           SwitchListTile(
             secondary: Icon(
               _isDarkMode ? Icons.dark_mode : Icons.light_mode,
-              color: _isDarkMode ? Colors.amber : Colors.blueGrey,
+              color: _isDarkMode ? Colors.white : Colors.amber,
             ),
             title: const Text('Dark Mode'),
             subtitle: const Text('Enable dark theme for the app'),
             value: _isDarkMode,
+            activeColor: AppColors.primary,
             onChanged: (bool value) {
               setState(() {
                 _isDarkMode = value;
@@ -202,7 +294,7 @@ class _SettingsPageState extends State<SettingsPage> {
             leading: const Icon(Icons.folder),
             title: const Text('PDF Save Location'),
             subtitle: Text(_pdfSaveLocation ?? 'Default Location'),
-            onTap: _changePdfLocation,
+            onTap: _updatePdfSaveLocation,
           ),
           const Divider(),
 
@@ -244,7 +336,13 @@ class _SettingsPageState extends State<SettingsPage> {
                             decoration: const InputDecoration(
                               labelText: 'New Rate (₹)',
                               border: OutlineInputBorder(),
+                              focusedBorder: OutlineInputBorder(
+                                borderSide: BorderSide(
+                                    color: AppColors.primary, width: 2),
+                              ),
+                              labelStyle: TextStyle(color: AppColors.primary),
                             ),
+                            cursorColor: AppColors.primary,
                             keyboardType: const TextInputType.numberWithOptions(
                                 decimal: true),
                           ),
@@ -253,9 +351,8 @@ class _SettingsPageState extends State<SettingsPage> {
                         ElevatedButton(
                           onPressed: _updateEvaluationRate,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color.fromARGB(
-                                255, 98, 0, 238), // Fixed color for both themes
-                            foregroundColor: Colors.white, // Text color
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
                           ),
                           child: const Text('Update'),
                         ),
@@ -290,6 +387,12 @@ class _SettingsPageState extends State<SettingsPage> {
             title: const Text('Restore Data'),
             subtitle: const Text('Import data from backup'),
             onTap: _restoreDatabase,
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete),
+            title: const Text('Clear All Data'),
+            subtitle: const Text('Delete all data'),
+            onTap: _clearAllData,
           ),
           const Divider(),
 

@@ -5,6 +5,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import '../helpers/database_helper.dart';
+import '../constants/app_colors.dart';
 
 class CalculationHistoryPage extends StatefulWidget {
   final DatabaseHelper dbHelper;
@@ -140,52 +141,9 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
     }
   }
 
-  Future<void> _showCalculationDetails(Map<String, dynamic> record) async {
-    final examiner = await widget.dbHelper.getExaminer(widget.examinerId);
-    if (examiner != null) {
-      if (!mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Calculation Details'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Date: ${DateFormat('dd/MM/yyyy').format(
-                  DateTime.parse(record['date']),
-                )}'),
-                Text('Examiner: ${examiner['fullname']}'),
-                Text('Department: ${examiner['department']}'),
-                Text('Total Papers: ${record['papers_evaluated']}'),
-                Text('Staff Count: ${record['staff_count']}'),
-                Text(
-                    'Base Salary: Rs.${record['base_salary'].toStringAsFixed(2)}'),
-                Text(
-                    'Incentive: Rs.${record['incentive_amount'].toStringAsFixed(2)}'),
-                const Divider(),
-                Text(
-                  'Total Amount: Rs.${record['total_salary'].toStringAsFixed(2)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
-      );
-    }
-  }
-
-  Future<void> _downloadSelected() async {
-    if (_selectedItems.isEmpty) {
+  Future<void> _downloadSelected([List<int>? specificIds]) async {
+    final ids = specificIds ?? _selectedItems.toList();
+    if (ids.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No items selected')),
       );
@@ -194,9 +152,8 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
 
     try {
       final pdf = pw.Document();
-      final selectedCalculations = _filteredHistory
-          .where((item) => _selectedItems.contains(item['id']))
-          .toList();
+      final selectedCalculations =
+          _filteredHistory.where((item) => ids.contains(item['id'])).toList();
 
       final examiner = await widget.dbHelper
           .getExaminer(selectedCalculations.first['examiner_id']);
@@ -504,8 +461,100 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
     return grouped;
   }
 
+  void _viewCalculation(Map<String, dynamic> calculation) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.7, // Make dialog wider
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Calculation Details',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Examiner: ${calculation['examiner_name']}'),
+                        Text('ID: ${calculation['examinerid']}'),
+                        Text(
+                            'Date: ${DateFormat('dd/MM/yyyy').format(DateTime.parse(calculation['date']))}'),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Total Papers: ${calculation['total_papers']}'),
+                        Text('Total Staff: ${calculation['total_staff']}'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            'Base Salary: Rs.${calculation['base_salary'].toStringAsFixed(2)}'),
+                        Text(
+                            'Incentive: Rs.${calculation['incentive_amount'].toStringAsFixed(2)}'),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      'Total Amount: Rs.${calculation['total_salary'].toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 18),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton.icon(
+                    icon: const Icon(Icons.download),
+                    label: const Text('Download PDF'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _downloadSelected([calculation['id']]);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       body: Column(
         children: [
@@ -520,11 +569,20 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                     controller: _searchController,
                     decoration: InputDecoration(
                       labelText: 'Search calculations...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                      border: const OutlineInputBorder(),
+                      focusedBorder: const OutlineInputBorder(
+                        borderSide:
+                            BorderSide(color: AppColors.primary, width: 2),
                       ),
-                      prefixIcon: const Icon(Icons.search),
+                      labelStyle: TextStyle(
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
                     ),
+                    cursorColor: AppColors.primary,
                     onChanged: _filterAndSortHistory,
                   ),
                 ),
@@ -586,7 +644,7 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
-                          _isSelectMode ? Colors.grey : const Color(0xFF6200EE),
+                          _isSelectMode ? Colors.grey : AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -782,10 +840,9 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                                               IconButton(
                                                 icon: const Icon(
                                                     Icons.visibility),
-                                                color: Colors.blue,
                                                 onPressed: () =>
-                                                    _showCalculationDetails(
-                                                        record),
+                                                    _viewCalculation(record),
+                                                tooltip: 'View Details',
                                               ),
                                               IconButton(
                                                 icon: const Icon(Icons.delete),

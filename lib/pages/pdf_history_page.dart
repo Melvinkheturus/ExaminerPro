@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../helpers/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
+import '../constants/app_colors.dart';
 
 class PDFHistoryPage extends StatefulWidget {
   const PDFHistoryPage({super.key});
@@ -308,6 +309,8 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       body: Column(
         children: [
@@ -322,11 +325,20 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
                     controller: _searchController,
                     decoration: InputDecoration(
                       labelText: 'Search PDFs...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                      border: const OutlineInputBorder(),
+                      focusedBorder: const OutlineInputBorder(
+                        borderSide:
+                            BorderSide(color: AppColors.primary, width: 2),
                       ),
-                      prefixIcon: const Icon(Icons.search),
+                      labelStyle: TextStyle(
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: isDark ? Colors.white : Colors.black,
+                      ),
                     ),
+                    cursorColor: AppColors.primary,
                     onChanged: _filterAndSortHistory,
                   ),
                 ),
@@ -388,7 +400,7 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
-                          _isSelectMode ? Colors.grey : const Color(0xFF6200EE),
+                          _isSelectMode ? Colors.grey : AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),

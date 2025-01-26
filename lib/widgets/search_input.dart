@@ -17,7 +17,7 @@ class SearchInput extends StatelessWidget {
             color: AppColors.primaryBackground,
             boxShadow: [
               BoxShadow(
-                color: AppColors.primaryText.withOpacity(0.1),
+                color: AppColors.textPrimary.withOpacity(0.1),
                 blurRadius: 3,
                 offset: const Offset(1.5, 1.5),
               ),
@@ -32,23 +32,28 @@ class SearchInput extends StatelessWidget {
             children: [
               TextField(
                 style: const TextStyle(
-                  color: AppColors.primaryText,
+                  color: AppColors.textPrimary,
                   fontSize: 15,
                 ),
                 decoration: InputDecoration(
                   hintText: "Type to search...",
                   hintStyle: const TextStyle(
-                    color: AppColors.secondaryText,
+                    color: AppColors.textSecondary,
                   ),
                   filled: true,
                   fillColor: AppColors.primaryBackground,
                   contentPadding: const EdgeInsets.only(left: 50),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(50),
-                    borderSide: BorderSide.none,
+                    borderSide: const BorderSide(color: AppColors.primary),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(50),
+                    borderSide:
+                        const BorderSide(color: AppColors.primary, width: 2),
                   ),
                 ),
-                cursorColor: AppColors.primaryColor,
+                cursorColor: AppColors.primary,
               ),
               Positioned(
                 left: 0,
@@ -62,7 +67,7 @@ class SearchInput extends StatelessWidget {
                   ),
                   child: const Icon(
                     Icons.search,
-                    color: AppColors.primaryText,
+                    color: AppColors.textPrimary,
                     size: 24,
                   ),
                 ),

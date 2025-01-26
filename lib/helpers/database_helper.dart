@@ -81,7 +81,7 @@ class DatabaseHelper {
         )
       ''');
     }
-    
+
     if (oldVersion < 3) {
       // Add is_overall_report column to pdf_history table
       await db.execute('''
@@ -179,7 +179,12 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getCalculationHistory() async {
     final db = await database;
     return await db.rawQuery('''
-      SELECT e.*, ex.fullname as examiner_name, ex.examinerid, ex.department 
+      SELECT 
+        e.*, 
+        ex.fullname as examiner_name, 
+        ex.examinerid, 
+        ex.department,
+        e.total_papers
       FROM evaluations e
       LEFT JOIN examiners ex ON e.examiner_id = ex.id
       ORDER BY e.date DESC
@@ -216,7 +221,8 @@ class DatabaseHelper {
     );
   }
 
-  Future<List<Map<String, dynamic>>> getCalculationHistoryByExaminer(int examinerId) async {
+  Future<List<Map<String, dynamic>>> getCalculationHistoryByExaminer(
+      int examinerId) async {
     final db = await database;
     return await db.query(
       'evaluations',
@@ -226,7 +232,8 @@ class DatabaseHelper {
     );
   }
 
-  Future<List<Map<String, dynamic>>> getPdfHistoryByExaminer(int examinerId) async {
+  Future<List<Map<String, dynamic>>> getPdfHistoryByExaminer(
+      int examinerId) async {
     final db = await database;
     return await db.rawQuery('''
       SELECT p.*, e.fullname, e.examinerid 
@@ -250,5 +257,12 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = p.join(dbPath, 'chief_examiner.db');
     await databaseFactory.deleteDatabase(path);
+  }
+
+  Future<void> clearAllData() async {
+    final db = await database;
+    await db.delete('examiners');
+    await db.delete('evaluations');
+    await db.delete('pdf_history');
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../helpers/database_helper.dart';
+import '../constants/app_colors.dart';
 
 class ProfilePage extends StatefulWidget {
   final DatabaseHelper dbHelper;
@@ -93,6 +94,14 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    const inputDecoration = InputDecoration(
+      border: OutlineInputBorder(),
+      focusedBorder: OutlineInputBorder(
+        borderSide: BorderSide(color: AppColors.primary, width: 2),
+      ),
+      labelStyle: TextStyle(color: Colors.black87),
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.examiner == null ? 'Add Examiner' : 'Edit Examiner'),
@@ -109,16 +118,24 @@ class _ProfilePageState extends State<ProfilePage> {
                 onTap: _pickImage,
                 child: CircleAvatar(
                   radius: 50,
+                  backgroundColor: AppColors.primary.withOpacity(0.1),
                   backgroundImage:
                       _imagePath != null ? FileImage(File(_imagePath!)) : null,
                   child: _imagePath == null
-                      ? const Icon(Icons.person, size: 50)
+                      ? Icon(
+                          Icons.person,
+                          size: 50,
+                          color: AppColors.primary,
+                        )
                       : null,
                 ),
               ),
               TextButton.icon(
-                icon: const Icon(Icons.upload),
-                label: const Text('Upload Picture'),
+                icon: Icon(Icons.upload, color: AppColors.primary),
+                label: Text(
+                  'Upload Picture',
+                  style: TextStyle(color: AppColors.primary),
+                ),
                 onPressed: _pickImage,
               ),
               const SizedBox(height: 24),
@@ -137,10 +154,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _nameController,
-                        decoration: const InputDecoration(
+                        decoration: inputDecoration.copyWith(
                           labelText: 'Full Name',
-                          border: OutlineInputBorder(),
                         ),
+                        cursorColor: AppColors.primary,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Please enter full name';
@@ -151,10 +168,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _examinerIdController,
-                        decoration: const InputDecoration(
+                        decoration: inputDecoration.copyWith(
                           labelText: 'Examiner ID',
-                          border: OutlineInputBorder(),
                         ),
+                        cursorColor: AppColors.primary,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Please enter examiner ID';
@@ -165,10 +182,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _departmentController,
-                        decoration: const InputDecoration(
+                        decoration: inputDecoration.copyWith(
                           labelText: 'Department',
-                          border: OutlineInputBorder(),
                         ),
+                        cursorColor: AppColors.primary,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Please enter department';
@@ -179,10 +196,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _positionController,
-                        decoration: const InputDecoration(
+                        decoration: inputDecoration.copyWith(
                           labelText: 'Position',
-                          border: OutlineInputBorder(),
                         ),
+                        cursorColor: AppColors.primary,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Please enter position';
@@ -210,10 +227,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _emailController,
-                        decoration: const InputDecoration(
+                        decoration: inputDecoration.copyWith(
                           labelText: 'Email Address',
-                          border: OutlineInputBorder(),
                         ),
+                        cursorColor: AppColors.primary,
                         keyboardType: TextInputType.emailAddress,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -228,10 +245,10 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 16),
                       TextFormField(
                         controller: _phoneController,
-                        decoration: const InputDecoration(
+                        decoration: inputDecoration.copyWith(
                           labelText: 'Phone Number',
-                          border: OutlineInputBorder(),
                         ),
+                        cursorColor: AppColors.primary,
                         keyboardType: TextInputType.phone,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -254,13 +271,35 @@ class _ProfilePageState extends State<ProfilePage> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   ElevatedButton.icon(
-                    icon: const Icon(Icons.cancel),
-                    label: const Text('Cancel'),
+                    icon: const Icon(Icons.cancel, color: Colors.white),
+                    label: const Text(
+                      'Cancel',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                   ElevatedButton.icon(
-                    icon: const Icon(Icons.save),
-                    label: const Text('Save'),
+                    icon: const Icon(Icons.save, color: Colors.white),
+                    label: const Text(
+                      'Save',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                     onPressed: _saveExaminer,
                   ),
                 ],
