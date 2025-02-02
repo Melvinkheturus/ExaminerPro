@@ -6,6 +6,7 @@ import '../helpers/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import '../constants/app_colors.dart';
+import 'package:path/path.dart' as p;
 
 class PDFHistoryPage extends StatefulWidget {
   const PDFHistoryPage({super.key});
@@ -167,61 +168,66 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
     }
   }
 
-  Future<void> _downloadSelected() async {
-    if (_selectedItems.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No items selected')),
-      );
-      return;
-    }
-
+  Future<void> _downloadSelected([List<int>? specificIds]) async {
     try {
-      // Get the documents directory
-      final directory = await getApplicationDocumentsDirectory();
-      final baseDir = Directory('${directory.path}/Chief Examiner');
-
-      // Create base directory if it doesn't exist
-      if (!await baseDir.exists()) {
-        await baseDir.create(recursive: true);
+      final ids = specificIds ?? _selectedItems.toList();
+      if (ids.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No items selected')),
+        );
+        return;
       }
 
-      // Group selected items by examiner
-      final groupedFiles = <String, List<Map<String, dynamic>>>{};
-      for (var item in _filteredHistory
-          .where((item) => _selectedItems.contains(item['id']))) {
-        final examinerName = item['fullname'] ?? 'Unknown';
-        groupedFiles.putIfAbsent(examinerName, () => []).add(item);
-      }
+      // Get save location
+      final prefs = await SharedPreferences.getInstance();
+      String? customLocation = prefs.getString('pdf_save_location');
 
-      // Copy files to respective examiner folders
-      for (var entry in groupedFiles.entries) {
-        final examinerDir = Directory('${baseDir.path}/${entry.key}');
-        if (!await examinerDir.exists()) {
-          await examinerDir.create();
-        }
+      // Get selected PDFs
+      final selectedPdfs =
+          _history.where((pdf) => ids.contains(pdf['id'])).toList();
 
-        for (var file in entry.value) {
-          final sourceFile = File(file['file_path']);
-          if (await sourceFile.exists()) {
-            final fileName = sourceFile.path.split('/').last;
-            final destFile = File('${examinerDir.path}/$fileName');
-            await sourceFile.copy(destFile.path);
+      for (var pdf in selectedPdfs) {
+        final sourceFile = File(pdf['file_path']);
+        if (await sourceFile.exists()) {
+          final fileName = pdf['file_path'].split('/').last;
+
+          String destinationPath;
+          if (customLocation != null && customLocation.isNotEmpty) {
+            // Normalize Windows path
+            customLocation = customLocation.replaceAll('\\', '/');
+            final saveDir = Directory(customLocation);
+            if (!await saveDir.exists()) {
+              await saveDir.create(recursive: true);
+            }
+            destinationPath = p.join(customLocation, fileName);
+            if (Platform.isWindows) {
+              destinationPath = destinationPath.replaceAll('/', '\\');
+            }
+          } else {
+            final output = await getApplicationDocumentsDirectory();
+            final saveDir = Directory('${output.path}/Chief Examiner PDFs');
+            if (!await saveDir.exists()) {
+              await saveDir.create(recursive: true);
+            }
+            destinationPath = p.join(saveDir.path, fileName);
           }
+
+          // Copy file to destination
+          await sourceFile.copy(destinationPath);
+
+          // Open the file after download
+          await OpenFile.open(destinationPath);
         }
       }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Files downloaded to: ${baseDir.path}'),
-          duration: const Duration(seconds: 5),
-        ),
+        const SnackBar(content: Text('Files downloaded successfully')),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error downloading files')),
+        SnackBar(content: Text('Error downloading files: $e')),
       );
     }
   }
@@ -435,7 +441,7 @@ class _PDFHistoryPageState extends State<PDFHistoryPage> {
                     ),
                     onPressed: (!_isSelectMode || _selectedItems.isEmpty)
                         ? null
-                        : _downloadSelected,
+                        : () => _downloadSelected(),
                   ),
                 ),
                 const SizedBox(width: 8),

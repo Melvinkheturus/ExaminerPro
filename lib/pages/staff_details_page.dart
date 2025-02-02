@@ -86,6 +86,26 @@ class _StaffDetailsPageState extends State<StaffDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final inputDecoration = InputDecoration(
+      labelStyle: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w500,
+        color: isDark ? Colors.white70 : Colors.black87,
+      ),
+      border: const OutlineInputBorder(),
+      focusedBorder: const OutlineInputBorder(
+        borderSide: BorderSide(color: AppColors.primary, width: 2),
+      ),
+    );
+
+    final textStyle = TextStyle(
+      fontSize: 18,
+      fontWeight: FontWeight.w500,
+      color: isDark ? Colors.white : Colors.black,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Staff Details'),
@@ -127,44 +147,18 @@ class _StaffDetailsPageState extends State<StaffDetailsPage> {
                         const SizedBox(height: 8),
                         TextField(
                           controller: _nameControllers[index],
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          decoration: const InputDecoration(
+                          style: textStyle,
+                          decoration: inputDecoration.copyWith(
                             labelText: 'Staff Name/ID',
-                            labelStyle: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black87,
-                            ),
-                            border: OutlineInputBorder(),
-                            focusedBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                  color: AppColors.primary, width: 2),
-                            ),
                           ),
                           cursorColor: AppColors.primary,
                         ),
                         const SizedBox(height: 8),
                         TextField(
                           controller: _controllers[index],
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          decoration: const InputDecoration(
+                          style: textStyle,
+                          decoration: inputDecoration.copyWith(
                             labelText: 'Papers Evaluated',
-                            labelStyle: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black87,
-                            ),
-                            border: OutlineInputBorder(),
-                            focusedBorder: OutlineInputBorder(
-                              borderSide: BorderSide(
-                                  color: AppColors.primary, width: 2),
-                            ),
                           ),
                           cursorColor: AppColors.primary,
                           keyboardType: TextInputType.number,

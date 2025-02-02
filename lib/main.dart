@@ -3,6 +3,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_size/window_size.dart';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
 
 import 'pages/profile_page.dart';
 import 'pages/settings_page.dart';
@@ -31,7 +32,7 @@ void main() async {
     setWindowMaxSize(Size.infinite);
   }
 
-  runApp(const ExaminerProApp());
+  runApp(Phoenix(child: const ExaminerProApp()));
 }
 
 class ExaminerProApp extends StatefulWidget {

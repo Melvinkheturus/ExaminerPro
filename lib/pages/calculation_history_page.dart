@@ -6,6 +6,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import '../helpers/database_helper.dart';
 import '../constants/app_colors.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path/path.dart' as p;
 
 class CalculationHistoryPage extends StatefulWidget {
   final DatabaseHelper dbHelper;
@@ -209,99 +211,203 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
   }
 
   Future<void> _downloadAll() async {
-    if (_filteredHistory.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No calculations to download')),
-      );
-      return;
-    }
-
     try {
+      // Get all calculation history
+      final history = await widget.dbHelper.getCalculationHistory();
+
       final pdf = pw.Document();
 
-      // Group calculations by examiner
-      final groupedCalculations = _groupHistoryByExaminer();
-
-      // Add a cover page
+      // First page - Summary
       pdf.addPage(
         pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          build: (context) => pw.Center(
-            child: pw.Column(
-              mainAxisAlignment: pw.MainAxisAlignment.center,
-              children: [
-                pw.Text(
-                  'GURU NANAK COLLEGE (AUTONOMOUS)',
-                  style: pw.TextStyle(
-                      fontSize: 20, fontWeight: pw.FontWeight.bold),
-                ),
-                pw.SizedBox(height: 10),
-                pw.Text(
-                  'Complete Calculation History Report',
-                  style: pw.TextStyle(
-                      fontSize: 18, fontWeight: pw.FontWeight.bold),
-                ),
-                pw.SizedBox(height: 20),
-                pw.Text(
-                  'Generated on: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
-                  style: const pw.TextStyle(fontSize: 14),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-
-      // Add calculations grouped by examiner
-      for (var entry in groupedCalculations.entries) {
-        final examinerName = entry.key;
-        final calculations = entry.value;
-        final examiner = await widget.dbHelper
-            .getExaminer(calculations.first['examiner_id']);
-
-        if (examiner != null) {
-          // Add examiner header page
-          pdf.addPage(
-            pw.Page(
-              pageFormat: PdfPageFormat.a4,
-              build: (context) => pw.Center(
+          build: (context) => pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              // Header
+              pw.Center(
                 child: pw.Column(
-                  mainAxisAlignment: pw.MainAxisAlignment.center,
                   children: [
                     pw.Text(
-                      examinerName,
+                      'GURU NANAK COLLEGE (AUTONOMOUS)',
                       style: pw.TextStyle(
-                          fontSize: 18, fontWeight: pw.FontWeight.bold),
+                          fontSize: 16, fontWeight: pw.FontWeight.bold),
                     ),
-                    pw.SizedBox(height: 10),
+                    pw.SizedBox(height: 8),
                     pw.Text(
-                      'Calculation History',
-                      style: const pw.TextStyle(fontSize: 16),
+                      'Complete Calculation History Report',
+                      style: pw.TextStyle(
+                          fontSize: 14, fontWeight: pw.FontWeight.bold),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'Generated on: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+                      style: const pw.TextStyle(fontSize: 10),
+                    ),
+                    pw.SizedBox(height: 20),
+                    pw.Text(
+                      'OVERALL CHIEF EXAMINER EVALUATION SUMMARY',
+                      style: pw.TextStyle(
+                          fontSize: 14, fontWeight: pw.FontWeight.bold),
                     ),
                   ],
                 ),
               ),
-            ),
-          );
+              pw.SizedBox(height: 20),
 
-          // Add all calculations for this examiner
-          for (var calculation in calculations) {
-            pdf.addPage(await _generateCalculationPage(calculation, examiner));
-          }
+              // Summary Table
+              pw.Table(
+                border: pw.TableBorder.all(width: 0.5),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(0.8), // Increased width for S.No
+                  1: const pw.FlexColumnWidth(2.5), // Name
+                  2: const pw.FlexColumnWidth(1.2), // Examiner ID
+                  3: const pw.FlexColumnWidth(1.2), // Papers
+                  4: const pw.FlexColumnWidth(1.5), // Base Salary
+                  5: const pw.FlexColumnWidth(1.2), // Incentive
+                  6: const pw.FlexColumnWidth(1.5), // Total Salary
+                },
+                children: [
+                  // Table Header
+                  pw.TableRow(
+                    decoration: pw.BoxDecoration(color: PdfColors.grey200),
+                    children: [
+                      'S.No',
+                      'Name',
+                      'Examiner ID',
+                      'Papers',
+                      'Base Salary',
+                      'Incentive',
+                      'Total Amt'
+                    ]
+                        .map((text) => pw.Padding(
+                              padding: const pw.EdgeInsets.all(6),
+                              child: pw.Text(
+                                text,
+                                style: pw.TextStyle(
+                                    fontWeight: pw.FontWeight.bold,
+                                    fontSize: 8),
+                                textAlign: pw.TextAlign.center,
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                  // Data Rows
+                  ...history.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final record = entry.value;
+                    return pw.TableRow(
+                      children: [
+                        (index + 1).toString(),
+                        record['examiner_name'],
+                        record['examinerid'],
+                        record['total_papers'].toString(),
+                        'Rs ${record['base_salary'].toStringAsFixed(0)}',
+                        'Rs ${record['incentive_amount'].toStringAsFixed(0)}',
+                        'Rs ${record['total_salary'].toStringAsFixed(0)}',
+                      ]
+                          .map((text) => pw.Padding(
+                                padding: const pw.EdgeInsets.symmetric(
+                                    vertical: 4, horizontal: 6),
+                                child: pw.Text(
+                                  text,
+                                  style: const pw.TextStyle(fontSize: 10),
+                                  textAlign: text.startsWith('Rs')
+                                      ? pw.TextAlign.right
+                                      : text.contains(RegExp(r'^\d+$'))
+                                          ? pw.TextAlign.center
+                                          : pw.TextAlign.left,
+                                ),
+                              ))
+                          .toList(),
+                    );
+                  }),
+                  // Total Row
+                  pw.TableRow(
+                    decoration: pw.BoxDecoration(color: PdfColors.grey200),
+                    children: [
+                      'Total',
+                      '-',
+                      '-',
+                      history
+                          .fold<int>(
+                              0, (sum, e) => sum + (e['total_papers'] as int))
+                          .toString(),
+                      'Rs ${history.fold<double>(0, (sum, e) => sum + (e['base_salary'] as double)).toStringAsFixed(0)}',
+                      'Rs ${history.fold<double>(0, (sum, e) => sum + (e['incentive_amount'] as double)).toStringAsFixed(0)}',
+                      'Rs ${history.fold<double>(0, (sum, e) => sum + (e['total_salary'] as double)).toStringAsFixed(0)}',
+                    ]
+                        .map((text) => pw.Padding(
+                              padding: const pw.EdgeInsets.all(6),
+                              child: pw.Text(
+                                text,
+                                style: pw.TextStyle(
+                                    fontWeight: pw.FontWeight.bold,
+                                    fontSize: 10),
+                                textAlign: text.startsWith('Rs')
+                                    ? pw.TextAlign.right
+                                    : text.contains(RegExp(r'^\d+$'))
+                                        ? pw.TextAlign.center
+                                        : text == 'Total'
+                                            ? pw.TextAlign.left
+                                            : pw.TextAlign.center,
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+              pw.Text(
+                'This is a system-generated summary. For detailed calculations, refer to the next page.',
+                style:
+                    const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
+                textAlign: pw.TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      // Add detailed report pages
+      for (var calculation in history) {
+        final examiner =
+            await widget.dbHelper.getExaminer(calculation['examiner_id']);
+        if (examiner != null) {
+          pdf.addPage(await _generateCalculationPage(calculation, examiner));
         }
       }
 
-      final directory = await getApplicationDocumentsDirectory();
-      final baseDir =
-          Directory('${directory.path}/Chief Examiner/Overall Reports');
-      if (!await baseDir.exists()) {
-        await baseDir.create(recursive: true);
+      // Save and open PDF
+      final prefs = await SharedPreferences.getInstance();
+      String? customLocation = prefs.getString('pdf_save_location');
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'overall_evaluation_report_$timestamp.pdf';
+
+      String filePath;
+      if (customLocation != null && customLocation.isNotEmpty) {
+        // Use custom location
+        customLocation = customLocation.replaceAll('\\', '/');
+        final saveDir = Directory(customLocation);
+        if (!await saveDir.exists()) {
+          await saveDir.create(recursive: true);
+        }
+        filePath = p.join(customLocation, fileName);
+        if (Platform.isWindows) {
+          filePath = filePath.replaceAll('/', '\\');
+        }
+      } else {
+        // Use default location
+        final directory = await getApplicationDocumentsDirectory();
+        final baseDir =
+            Directory('${directory.path}/Chief Examiner/Overall Reports');
+        if (!await baseDir.exists()) {
+          await baseDir.create(recursive: true);
+        }
+        filePath = p.join(baseDir.path, fileName);
       }
 
-      final timestamp = DateFormat('ddMMyyyy_HHmm').format(DateTime.now());
-      final fileName = 'Complete_Calculation_History_$timestamp.pdf';
-      final file = File('${baseDir.path}/$fileName');
-
+      final file = File(filePath);
       await file.writeAsBytes(await pdf.save());
 
       // Add to PDF history with special category
@@ -322,7 +428,7 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error generating PDF: $e')),
+        SnackBar(content: Text('Error generating report: $e')),
       );
     }
   }
@@ -408,13 +514,13 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       pw.Text('Total Staff'),
-                      pw.Text('${record['staff_count']}'),
+                      pw.Text('${record['total_staff']}'),
                     ]),
                 pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       pw.Text('Papers Evaluated'),
-                      pw.Text('${record['papers_evaluated']}'),
+                      pw.Text('${record['total_papers']}'),
                     ]),
                 pw.Divider(),
                 pw.Row(
@@ -820,14 +926,14 @@ class _CalculationHistoryPageState extends State<CalculationHistoryPage> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                            'Total Papers: ${record['papers_evaluated']}'),
+                                            'Total Papers: ${record['total_papers']}'),
                                         Text(
-                                            'Total Staff: ${record['staff_count']}'),
+                                            'Total Staff: ${record['total_staff']}'),
                                         Text(
                                           'Total Salary: Rs.${record['total_salary'].toStringAsFixed(2)}',
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            color: Color(0xFF6200EE),
+                                            color: AppColors.primary,
                                           ),
                                         ),
                                       ],

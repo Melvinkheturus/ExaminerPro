@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart' as p;
 
@@ -184,7 +185,12 @@ class DatabaseHelper {
         ex.fullname as examiner_name, 
         ex.examinerid, 
         ex.department,
-        e.total_papers
+        e.total_papers,
+        e.total_staff,
+        e.total_salary,
+        e.base_salary,
+        e.incentive_amount,
+        e.date
       FROM evaluations e
       LEFT JOIN examiners ex ON e.examiner_id = ex.id
       ORDER BY e.date DESC
@@ -261,8 +267,88 @@ class DatabaseHelper {
 
   Future<void> clearAllData() async {
     final db = await database;
-    await db.delete('examiners');
-    await db.delete('evaluations');
-    await db.delete('pdf_history');
+    try {
+      // Start a transaction
+      await db.transaction((txn) async {
+        // Disable foreign key constraints temporarily
+        await txn.execute('PRAGMA foreign_keys = OFF');
+
+        // Clear all tables
+        await txn.rawDelete('DELETE FROM evaluations');
+        await txn.rawDelete('DELETE FROM pdf_history');
+        await txn.rawDelete('DELETE FROM examiners');
+
+        // Reset auto-increment counters
+        await txn.execute('DELETE FROM sqlite_sequence');
+
+        // Re-enable foreign key constraints
+        await txn.execute('PRAGMA foreign_keys = ON');
+      });
+
+      // Vacuum the database
+      await db.execute('VACUUM');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> restoreDatabase(String backupPath) async {
+    try {
+      // Close existing connection first
+      if (_database != null) {
+        await _database!.close();
+        _database = null;
+      }
+
+      // Get database paths
+      final dbPath = await getDatabasesPath();
+      final currentPath = p.join(dbPath, 'chief_examiner.db');
+
+      // Create a temporary copy of the backup
+      final tempPath = '${currentPath}_temp';
+      await File(backupPath).copy(tempPath);
+
+      // Test if the backup is valid by trying to open it
+      final testDb = await openDatabase(tempPath);
+
+      // Verify tables exist
+      await testDb.query('examiners');
+      await testDb.query('evaluations');
+      await testDb.query('pdf_history');
+
+      // Close test connection
+      await testDb.close();
+
+      // If we got here, the backup is valid. Replace the current database
+      await File(tempPath).copy(currentPath);
+
+      // Delete temp file
+      await File(tempPath).delete();
+
+      // Initialize new connection
+      _database = null;
+      _database = await openDatabase(
+        currentPath,
+        version: 3,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      );
+    } catch (e) {
+      // If anything goes wrong, ensure we have a fresh database
+      _database = null;
+      await _initDatabase();
+      rethrow;
+    }
+  }
+
+  Future<void> closeDatabase() async {
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
+  }
+
+  Future<void> initializeDatabase() async {
+    _database = await _initDatabase();
   }
 }

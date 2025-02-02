@@ -94,12 +94,17 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    const inputDecoration = InputDecoration(
-      border: OutlineInputBorder(),
-      focusedBorder: OutlineInputBorder(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final inputDecoration = InputDecoration(
+      border: const OutlineInputBorder(),
+      focusedBorder: const OutlineInputBorder(
         borderSide: BorderSide(color: AppColors.primary, width: 2),
       ),
-      labelStyle: TextStyle(color: Colors.black87),
+      labelStyle: TextStyle(
+        color: isDark ? Colors.white70 : Colors.black87,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
 
     return Scaffold(
@@ -157,6 +162,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         decoration: inputDecoration.copyWith(
                           labelText: 'Full Name',
                         ),
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
                         cursorColor: AppColors.primary,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -170,6 +178,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         controller: _examinerIdController,
                         decoration: inputDecoration.copyWith(
                           labelText: 'Examiner ID',
+                        ),
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
                         ),
                         cursorColor: AppColors.primary,
                         validator: (value) {
@@ -185,6 +196,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         decoration: inputDecoration.copyWith(
                           labelText: 'Department',
                         ),
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
                         cursorColor: AppColors.primary,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -198,6 +212,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         controller: _positionController,
                         decoration: inputDecoration.copyWith(
                           labelText: 'Position',
+                        ),
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
                         ),
                         cursorColor: AppColors.primary,
                         validator: (value) {
@@ -230,6 +247,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         decoration: inputDecoration.copyWith(
                           labelText: 'Email Address',
                         ),
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                        ),
                         cursorColor: AppColors.primary,
                         keyboardType: TextInputType.emailAddress,
                         validator: (value) {
@@ -247,6 +267,9 @@ class _ProfilePageState extends State<ProfilePage> {
                         controller: _phoneController,
                         decoration: inputDecoration.copyWith(
                           labelText: 'Phone Number',
+                        ),
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
                         ),
                         cursorColor: AppColors.primary,
                         keyboardType: TextInputType.phone,

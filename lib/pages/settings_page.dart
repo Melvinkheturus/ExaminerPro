@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart';
 import '../helpers/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_colors.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
 
 class SettingsPage extends StatefulWidget {
   final bool isDarkMode;
@@ -29,6 +30,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _pdfSaveLocation;
   double _evaluationRate = 20.0; // Default rate
   final _rateController = TextEditingController();
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -40,6 +42,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void dispose() {
     _rateController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -121,56 +124,55 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _restoreDatabase() async {
     try {
-      // Get the database directory
-      final dbPath = await getDatabasesPath();
-      final destinationPath = p.join(dbPath, 'chief_examiner.db');
-
-      // Pick the backup file
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['db'],
       );
 
       if (result != null) {
-        // Close the database before restoring
-        await _closeDatabase();
+        // Show loading indicator
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
 
-        // Delete existing database if it exists
-        final destinationFile = File(destinationPath);
-        if (await destinationFile.exists()) {
-          await destinationFile.delete();
-        }
+        await widget.dbHelper.restoreDatabase(result.files.single.path!);
 
-        // Copy the backup file
-        final sourceFile = File(result.files.single.path!);
-        await sourceFile.copy(destinationPath);
+        // Close loading indicator
+        if (!mounted) return;
+        Navigator.pop(context);
 
-        // Reopen the database
-        await _reopenDatabase();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Database restored successfully')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Restore failed: $e')),
+        // Show success message and restart app
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Database Restored'),
+            content: const Text(
+              'Database has been restored successfully. The application needs to restart to apply changes.',
+            ),
+            actions: [
+              ElevatedButton(
+                child: const Text('Restart Now'),
+                onPressed: () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  Phoenix.rebirth(
+                      context); // You'll need to add the phoenix package
+                },
+              ),
+            ],
+          ),
         );
       }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Restore failed: $e')),
+      );
     }
-  }
-
-  Future<void> _closeDatabase() async {
-    final db = await openDatabase('chief_examiner.db');
-    await db.close();
-  }
-
-  Future<void> _reopenDatabase() async {
-    final dbHelper = DatabaseHelper();
-    await dbHelper.database;
   }
 
   Future<void> _clearAllData() async {
@@ -201,11 +203,47 @@ class _SettingsPageState extends State<SettingsPage> {
     );
 
     if (confirmed == true) {
-      await widget.dbHelper.clearAllData();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('All data cleared successfully')),
-      );
+      try {
+        // Show loading indicator
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+
+        await widget.dbHelper.clearAllData();
+
+        // Close loading indicator
+        if (!mounted) return;
+        Navigator.pop(context);
+
+        // Show success message and restart app
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Data Cleared'),
+            content: const Text(
+              'All data has been cleared successfully. The application needs to restart to apply changes.',
+            ),
+            actions: [
+              ElevatedButton(
+                child: const Text('Restart Now'),
+                onPressed: () {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                  Phoenix.rebirth(context);
+                },
+              ),
+            ],
+          ),
+        );
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to clear data: $e')),
+        );
+      }
     }
   }
 
@@ -261,163 +299,171 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: AppBar(
         title: const Text('Settings'),
       ),
-      body: ListView(
-        children: [
-          // General Settings Section
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'General Settings',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+      body: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        thickness: 8.0,
+        radius: const Radius.circular(4.0),
+        child: ListView(
+          controller: _scrollController,
+          children: [
+            // General Settings Section
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'General Settings',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
-          SwitchListTile(
-            secondary: Icon(
-              _isDarkMode ? Icons.dark_mode : Icons.light_mode,
-              color: _isDarkMode ? Colors.white : Colors.amber,
+            SwitchListTile(
+              secondary: Icon(
+                _isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                color: _isDarkMode ? Colors.white : Colors.amber,
+              ),
+              title: const Text('Dark Mode'),
+              subtitle: const Text('Enable dark theme for the app'),
+              value: _isDarkMode,
+              activeColor: AppColors.primary,
+              onChanged: (bool value) {
+                setState(() {
+                  _isDarkMode = value;
+                });
+                widget.onThemeChanged(value);
+              },
             ),
-            title: const Text('Dark Mode'),
-            subtitle: const Text('Enable dark theme for the app'),
-            value: _isDarkMode,
-            activeColor: AppColors.primary,
-            onChanged: (bool value) {
-              setState(() {
-                _isDarkMode = value;
-              });
-              widget.onThemeChanged(value);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.folder),
-            title: const Text('PDF Save Location'),
-            subtitle: Text(_pdfSaveLocation ?? 'Default Location'),
-            onTap: _updatePdfSaveLocation,
-          ),
-          const Divider(),
+            ListTile(
+              leading: const Icon(Icons.folder),
+              title: const Text('PDF Save Location'),
+              subtitle: Text(_pdfSaveLocation ?? 'Default Location'),
+              onTap: _updatePdfSaveLocation,
+            ),
+            const Divider(),
 
-          // Evaluation Rate Configuration Section
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Icon(Icons.currency_rupee),
-                SizedBox(width: 8),
-                Text(
-                  'Evaluation Rate Configuration',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+            // Evaluation Rate Configuration Section
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(Icons.currency_rupee),
+                  SizedBox(width: 8),
+                  Text(
+                    'Evaluation Rate Configuration',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Current Rate: ₹${_evaluationRate.toStringAsFixed(2)} per paper',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _rateController,
+                              decoration: const InputDecoration(
+                                labelText: 'New Rate (₹)',
+                                border: OutlineInputBorder(),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(
+                                      color: AppColors.primary, width: 2),
+                                ),
+                                labelStyle: TextStyle(color: AppColors.primary),
+                              ),
+                              cursorColor: AppColors.primary,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: _updateEvaluationRate,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Update'),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Current Rate: ₹${_evaluationRate.toStringAsFixed(2)} per paper',
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _rateController,
-                            decoration: const InputDecoration(
-                              labelText: 'New Rate (₹)',
-                              border: OutlineInputBorder(),
-                              focusedBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                    color: AppColors.primary, width: 2),
-                              ),
-                              labelStyle: TextStyle(color: AppColors.primary),
-                            ),
-                            cursorColor: AppColors.primary,
-                            keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: _updateEvaluationRate,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('Update'),
-                        ),
-                      ],
-                    ),
-                  ],
+            const Divider(),
+
+            // Data Management Section
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Data Management',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-          ),
-          const Divider(),
+            ListTile(
+              leading: const Icon(Icons.backup),
+              title: const Text('Backup Data'),
+              subtitle: const Text('Export database to a file'),
+              onTap: _backupDatabase,
+            ),
+            ListTile(
+              leading: const Icon(Icons.restore),
+              title: const Text('Restore Data'),
+              subtitle: const Text('Import data from backup'),
+              onTap: _restoreDatabase,
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete),
+              title: const Text('Clear All Data'),
+              subtitle: const Text('Delete all data'),
+              onTap: _clearAllData,
+            ),
+            const Divider(),
 
-          // Data Management Section
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'Data Management',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+            // About Section
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'About',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.backup),
-            title: const Text('Backup Data'),
-            subtitle: const Text('Export database to a file'),
-            onTap: _backupDatabase,
-          ),
-          ListTile(
-            leading: const Icon(Icons.restore),
-            title: const Text('Restore Data'),
-            subtitle: const Text('Import data from backup'),
-            onTap: _restoreDatabase,
-          ),
-          ListTile(
-            leading: const Icon(Icons.delete),
-            title: const Text('Clear All Data'),
-            subtitle: const Text('Delete all data'),
-            onTap: _clearAllData,
-          ),
-          const Divider(),
-
-          // About Section
-          const Padding(
-            padding: EdgeInsets.all(16),
-            child: Text(
-              'About',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            const ListTile(
+              leading: Icon(Icons.info),
+              title: Text('App Version'),
+              subtitle: Text('Version 1.0.0'),
             ),
-          ),
-          const ListTile(
-            leading: Icon(Icons.info),
-            title: Text('App Version'),
-            subtitle: Text('Version 1.0.0'),
-          ),
-          const ListTile(
-            leading: Icon(Icons.email),
-            title: Text('Contact'),
-            subtitle: Text('sankarmanikandan71@gmail.com'),
-          ),
-        ],
+            const ListTile(
+              leading: Icon(Icons.email),
+              title: Text('Contact'),
+              subtitle: Text('sankarmanikandan71@gmail.com'),
+            ),
+          ],
+        ),
       ),
     );
   }
